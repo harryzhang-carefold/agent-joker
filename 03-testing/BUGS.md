@@ -8,7 +8,7 @@
 - **未改任何代码**，BUG 由褚岩派单给章北海修复。
 - **无阻塞性 BUG（核心链路未跑通）**：RAG 建库→上传→解析→切分→向量化→检索、简易/第三方 agent 闭环、trace 全链路、限流 429 均通过（109 PASS + S11 e2e 43/43 佐证），检索 0 命中为自测 fallback embedding 环境产物而非链路中断（见 TEST_REPORT §3-RAG07）。故**不 kanban_block**。
 
-## 缺陷汇总（4 P1 + 3 P2，无 P0）
+## 缺陷汇总（4 P1 + 4 P2，无 P0）
 
 | ID | 严重 | 模块 | 现象 | 影响 | 状态 |
 |----|------|------|------|------|------|
@@ -19,6 +19,7 @@
 | BUG-05 | P2 | BASE 令牌 | 新 refresh token 换取新 access → 401 | BASE-09「刷新可用」不稳定，需复测确认 | 已关闭（S14 复测未复现：干净刷新 200，原 FAIL 为限流多登录的 refresh 家族轮换产物，E1-E3 PASS） |
 | BUG-06 | P2 | BASE 日志 | 登出操作未见于接口操作日志 | BASE-05 验收 2 未满足 | 已修（S14，probe 复验 F1-F2 PASS） |
 | BUG-07 | P1 | BASE 租户管理 | admin(acme) 点「租户管理」菜单 403；平台管理员无法登录（system 租户无种子用户） | 租户管理功能不可达，非平台用户菜单无权限控制 | 已修（S17，probe 复验 A1-A9/B1-B4 13/13 PASS） |
+| BUG-08 | P2 | LLM 节点（前端+环境态） | LLM 端点连通性测试 HTTP 401（端点本身通）；前端保存/测试/删除失败静默无提示 | 用户误判「平台坏了/没保存成功」；端点侧 401 为外部 vLLM 服务间歇拒绝（非代码缺陷） | 前端已修（S20，回归 8/8 PASS）；端点侧 401 为环境态，需用户在端点侧核查（见 DEV_REPORT_S20 §五） |
 
 > S14 修复报告：02-development/DEV_REPORT_S14.md（根因/改动/复验证据）；
 > 复验 probe：05-temp/probe_s14_v2.py（29/29 PASS，run 见 DEV_REPORT §回归）。
@@ -118,6 +119,26 @@
   - 无回归：refresh 轮换/登出失效/跨租户 404/多租户（S14/S15 口径）全过。
   - SKIP：浏览器真机点击（环境无 browser CLI），逻辑层三层核对闭环（bundle + 源码 canSee + API 安全边界）。
 - **影响闭环**：租户管理功能可达（平台管理员 `platform@system`）；非平台用户菜单隐藏 + 直接访问 403 友好提示；与 S12 既有 6 BUG 无回归。
+
+---
+
+## BUG-08（P2）LLM 端点连通性测试 HTTP 401 + 前端静默吞错（用户实测，S20 排查）
+- **现象**（用户实测，2026-09-24）：在 LLM 节点页新增/配置真实 vLLM 端点后点「连通性」→ 报 401 不可用，但用同一 key 直连该端点本身是通的；且前端保存/测试/删除失败时无任何提示，用户无法判断「是不是没保存成功」。
+- **排查**（S20，zhangbeihai，t_75684eb5，严格按用户指定 6 步，证据脚本 05-temp/s20_*.py）：
+  1. **新增端点**：`POST /api/llm/endpoints`（真实 key/base_url/model）→ **201**，`api_key_set=true`（明文不回显，DECISION-012 合规）。
+  2. **查库核对**：宿主 psql 直查 `llm_endpoints`，新节点行存在且与旧种子 `platform-fallback-llm` 是不同行 → **写入的是新节点，非读旧种子**。
+  3. **测试连通性**：`POST /api/llm/endpoints/{id}/test` → 200 + `{ok:false, summary:"unavailable: HTTP 401"}`；`joker-api` 日志可见探测请求 `POST .../v1/chat/completions "HTTP/1.1 401 Unauthorized"`（请求确实发出）。
+  4. **容器内取 key 逐字节比对**：在 `joker-api` 容器内连库取 `api_key_enc`（Fernet 184 字符），用应用同款 `decrypt_secret` 解密 → 与提交 key **逐字节相等**（len=66，前缀 `Leaflong-0` / 后缀 `o6EA8R0uXG` / `repr` 全一致，`byte-equal: True`）→ **加解密链路正确，无截断/改写/Fernet 漂移**。
+  5. **用库中 key 直连端点**：容器内直连 34.121.9.233:4000 间歇 401/200；**同窗口同 key 宿主直连亦 401/200**；40 连发对照：容器 `{401:37, RST:3, 200:0}` vs 宿主 `{401:36, RST:4, 200:0}`（401 平均延迟 ~605ms vs ~528ms）→ **401 与请求来源（容器 NAT/IP/源端口）无关**；host-network 容器、容器绑低源端口(888) 同分布；容器内访问 embedding 端点 34.64.61.208:4000=200（容器出站+认证正常）；401 响应 `server:uvicorn`+真实 GMT date（来自远端真实服务，非本地 MITM）；容器无 proxy 环境变量、无 DNS 劫持。
+  6. **宿主同 key 拿到 200 + 真实 completion**（`chatcmpl-...`，模型 `vllm-qwen3.8-27b` 返回内容）→ **key 本身有效**。
+- **结论**：
+  - **平台代码链路正确**（写入/存储/Fernet 加解密/探测请求构造/同 key 端点侧可成功），**非平台代码 bug**。
+  - **401 = 端点侧（外部 vLLM 34.121.9.233:4000）对同一有效 key 的间歇性拒绝，与来源无关**。根因假设（推测）：端点侧 vLLM 经 LB 分发到多 worker，**部分 worker 未配/配错 `--api-key`**（命中配对的=200，命中未配对的=401），或端点侧按来源/令牌的临时鉴权抖动（偶发 RST）。需用户在端点侧 vLLM/LB 处核实（平台侧无法从外部直接验证内部 worker key 配置）。
+- **真实平台代码问题（已修）**：`frontend/src/views/llm/LlmNodeView.vue` 的 `onSave`/`onTest` `catch(e){}` 静默吞错、`onDelete` 无 catch → 保存/测试/删除失败用户无感知（误判「没保存成功」）。**修复**：三处补 `ElMessage.error` 提示具体原因（`e?.response?.data?.detail || e?.message`）。s17 镜像重建 + 容器重建（healthy，`/healthz`=200）。
+- **复验**（S20，`05-temp/s20_regression.py` **8/8 PASS**）：webconsole healthz(8080)=200 / bff healthz(8000)=200 / 登录 acme admin=200 / 列 LLM 端点=200 / bundle 含「保存失败，数据未写入」=1 / **bundle 无 `catch(e){}` 静默块**（silent_catches=0）/ 连通性测试接口返回结构化 `{ok,summary}`=200 / 删除测试节点=200。
+- **报告**：02-development/DEV_REPORT_S20.md（6 步完整证据链 + 代码正确性证明 + 端点侧根因假设 + 用户可操作建议）。
+- **影响/闭环**：前端静默吞错已闭环（用户能看出「没保存成功」+ 具体原因）；端点侧 401 为**环境态非平台缺陷**——端点侧修好 key 配置后，平台侧无需改代码，`/test` 自动 `ok:true`（探测逻辑已证明正确）。端点不可用时 agent 走 mock-llm/本地 fallback 兜底（S03/S07 既有设计），平台功能闭环不受影响。
+- **用户可操作建议**（DEV_REPORT_S20 §五）：① 核对 34.121.9.233:4000 的 vLLM 部署，多 worker/副本/LB 时确保每个副本 `--api-key` 完全一致；② 若端点侧按来源限流/鉴权，确认平台容器出口 IP（36.24.190.41，经 NAT）在白名单；③ 端点侧修好后平台侧无需改代码；④ 不可控时把 base_url 指向单实例/同网段可达的 vLLM。
 
 ---
 

@@ -169,16 +169,28 @@ async function onSave() {
     ElMessage.success('已保存')
     dialog.value = false
     load()
-  } catch (e) {} finally { saving.value = false }
+  } catch (e) {
+    // BUG-08(S20): 原 catch(e){} 静默吞错——保存失败用户无感知（表现为"没保存成功"）。
+    // 统一拦截器已弹过一次 detail, 这里再补一条带上下文的提示, 保证用户明确知道未保存。
+    const msg = e?.response?.data?.detail || e?.message || '未知错误'
+    ElMessage.error(`保存失败，数据未写入: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
+    dialog.value = false
+  } finally { saving.value = false }
 }
 
 async function onDelete(row) {
   try {
     await ElMessageBox.confirm(`删除 ${row.name}？（被引用将 409 + 清单）`, '确认', { type: 'warning' })
   } catch { return }
-  await deleteMap[props.kind](row.id)
-  ElMessage.success('已删除')
-  load()
+  try {
+    await deleteMap[props.kind](row.id)
+    ElMessage.success('已删除')
+    load()
+  } catch (e) {
+    // BUG-08(S20): 原代码无 catch——删除失败(409 被引用/网络错误)无任何提示。
+    const msg = e?.response?.data?.detail || e?.message || '未知错误'
+    ElMessage.error(`删除失败: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
+  }
 }
 
 async function onTest(row) {
@@ -188,7 +200,11 @@ async function onTest(row) {
     const ok = res.data?.ok
     ElMessage[ok ? 'success' : 'error'](`探测结果: ${ok ? '可用' : '不可用'} — ${res.data?.summary || ''}`)
     load()
-  } catch (e) {} finally { row._testing = false }
+  } catch (e) {
+    // BUG-08(S20): 原 catch(e){} 静默吞错——测试接口本身失败(401 会话失效/网络)用户无感知。
+    const msg = e?.response?.data?.detail || e?.message || '未知错误'
+    ElMessage.error(`连通性测试请求失败: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
+  } finally { row._testing = false }
 }
 
 onMounted(load)
