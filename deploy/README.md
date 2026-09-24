@@ -89,3 +89,5 @@ docker compose --profile mocks down -v       # 连同 volumes 清空（完全干
   agent 对话闭环走 `mock-llm`（`--profile mocks`），trace/工具/引用链路行为一致；
   端点恢复后 `.env` 的 LLM_FALLBACK_* 即生产口径（agent 改绑真实端点 ID 即可）。
 - 宿主 8080 由 webconsole 占用；如需调试 api 直连，compose 注释处有 127.0.0.1:18080:8001 备用发布（默认关）。
+
+> **生产部署**：必读 [`PROD_DEPLOY.md`](PROD_DEPLOY.md)（生产 .env 必填项/生成方式/安全 checklist/备份/与自测差异）。
