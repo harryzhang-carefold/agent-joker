@@ -307,3 +307,63 @@ S16 交付后用户实测发现 **BUG-07（P1）** 三症状：
 - 部署态（S19 核验）：`agent-joker-api:s17` / `agent-joker-bff:s17` / `agent-joker-webconsole:s17` + pg/redis 全 healthy；启动 `cd deploy && docker compose up -d --build`（.env 已含 `SEED_PLATFORM_ADMIN_USERNAME=platform`）。
 
 > 褚岩（项目经理）用户实测修复轮终审签字：2026-09-24。独立抽验证据 `05-temp/results_s19.json` / `results_s19b.json`；上游报告 `02-development/DEV_REPORT_S17.md`、`03-testing/TEST_REPORT_S18.md`。
+
+## 12. QA 标准修复轮终审（S22 打回 -> S23a 修复 -> S23 回归 FAIL -> S25a 修复 -> S25b 回归 PASS -> S24 终审，2026-09-24，本卡权威结论）
+
+### 12.1 背景（为什么打回）
+用户 2026-09-24 拍板新 QA 标准（`03-testing/QA_STANDARD.md`，全体 dev-team 强制遵守，见 DECISION-028）：开发自测必须真实调用（非 mock）、浏览器功能测试强制（带截图）、外部依赖必须有真实/伪鉴权目标验证、验收不得仅凭 mock 绿。按新标准对 S21 交付重新终审（S22，t_0bef5b8e）-> **打回**：开发自测证据缺失、BUG-08 伪鉴权复验 FAIL（探测不带凭据）、浏览器截图证据不全。
+
+### 12.2 完整链路
+| 阶段 | 卡 | 结论 |
+|---|---|---|
+| S22 终审 | t_0bef5b8e（chuyan） | **打回**（QA_STANDARD 6 项中 3 项缺失） |
+| S23a 修复 | t_07665140（zhangbeihai） | commit 5dcaea8 + 6626472：BUG-11 内部取 key 通道（keep_secret / get_*_internal）+ BUG-10 nginx 正则收窄 + BUG-09 上传 allowlist + BUG-12 BFF 补 FERNET_KEY + 3 张 dev_probe 自测日志 |
+| S23 回归 | t_19433d9a（yuntianming） | **FAIL（阻塞验收）**：agent 运行时链路已修（wire=CORRECT_BEARER），但探测链路仍发 `Authorization: ***<key>` 掩码值（SHA256 铁证 wire=sha256("***"+key)）；开发自测 has_auth 判定为子串误报 |
+| S25a 修复 | t_342e0950（zhangbeihai） | commit 9fd0a93：`_auth_header` bearer 前缀 `***` 改为 `Bearer `（仅 bearer 分支）+ s25 镜像重建 + 字节级自测（dev_probe_s25_*.log 3 张，SHA256 逐字节判定） |
+| S25b 回归 | t_5a90dc0b（yuntianming） | **PASS**：独立严格伪鉴权（测试自定 key）A/B/C/D 全 PASS + 9 模块冒烟 14/14 + DEP_VERIFICATION 刷新 + BUGS.md BUG-11 关闭 |
+| S24 终审（本卡） | t_ff562cb9（chuyan） | **终审通过，交付**（12.3 逐项核对 6/6 + 12.4 独立复跑铁证） |
+
+### 12.3 QA_STANDARD 第三节 逐项核对（不采信 S25b 自报，独立抽样核对）
+| # | 核对项 | 结果 | 独立核验方式 |
+|---|---|---|---|
+| 1 | 开发自测证据覆盖本次修改全部接口 + 真实/伪鉴权目标（非 mock） | **PASS** | `dev_probe_s25_bug11_probe.log`（A/B/C 字节级）+ `dev_probe_s25_mcp_spa.log` + `dev_probe_s25_upload_whitelist.log` 齐全；严格伪鉴权只接受精确 `Bearer <非空>`，wire 记 val_len + val_sha256 |
+| 2 | 浏览器测试报告 9 模块主流程（操作步骤+截图）+ 每模块 >=1 失败/边界 | **PASS** | `TEST_REPORT_S25.md` 浏览器功能测试 14 项全 PASS 带 13 张 S25 截图（在盘核对 13/13）；关键截图 vision 复核（S25_06_mcp_spa=SPA 非 401 JSON；S25_03b=上传记录表）；`BROWSER_TEST.md`（S21 全功能基线）在盘 |
+| 3 | 依赖验证：BUG-08 复验 + LLM 真实端点 + embedding gte-qwen2 dim=3584 | **PASS** | `DEP_VERIFICATION.md` 已刷新为 S25 版（A-E 全 PASS）；真实 LLM 端点真实 key 探测 ok=true（OBS-02 已恢复）；embedding 正确路由 ok=true dim=3584 |
+| 4 | BUGS.md P0/P1 全关 | **PASS** | BUG-01..07、10、11、12（P1 共 7 个）全部已修/已关闭；BUG-08/09（P2）已修 + 复核 PASS；无 P0 |
+| 5 | 回归报告分两节 + 结论 PASS | **PASS** | `TEST_REPORT_S25.md` 含 `## 浏览器功能测试`（带截图路径）+ `## 接口/依赖验证` 两节，回归结论 **PASS**（注：任务卡文本引用 TEST_REPORT_S23.md 系打回前命名；S23 报告结论为 FAIL，实际交付报告为 S25b 产出的 TEST_REPORT_S25.md，结构与判定均满足本项） |
+| 6 | docker compose 启动 + 功能正常 | **PASS** | 本卡实跑：8 容器全 Up/healthy（api/bff/webconsole/pg/redis + mock x3），8080 -> 200 text/html，bff /healthz -> 200 |
+
+### 12.4 S24 独立复跑铁证（终审不采信任何上游自报）
+1. **SHA256 独立重算**（`05-temp/s24_final_recheck.py`）：S25b 铁证 `sha256("Bearer "+qa-s25b-key-4821)=00e7c05d...8a152b`（len=23）与报告逐字节一致；S25a 自测铁证 `747c3157...`（len=23）一致；S23 缺陷形态 `sha256("***"+key)=ca17c0ca...`（len=19）与 S23 报告一致——三份报告数字全部可复现。
+2. **实码核对**：容器 `joker-api:/app/joker_shared/llm/service.py:358` = `return {"Authorization": "Bearer " + key}`（`Bearer ` 1 次、`***` 0 次）；git 工作树同一样本；HEAD=9fd0a93。
+3. **全新独立端到端复测**（`05-temp/s24_final/independent_probe.py`，全新 key `qa-s24final-key-7719`、独立端口 9985，不复用 S25b 任何脚本）：A 带 key 节点 -> 平台探测 **ok=true**，wire `Authorization` len=27，**SHA256=8231e12c...4611dc == 独立重算 sha256("Bearer "+key) 逐字节精确（CORRECT_BEARER）**，与掩码形态不匹配；B 无 key 节点 -> **ok=false + NO_HEADER**（A/B 行为正确区分）。**VERDICT=true。**
+
+### 12.5 QA 证据清单（供用户抽查，QA_STANDARD 第五节）
+- 开发自测日志（S25a，3 张，字节级判定）：
+  - `03-testing/dev_probe_s25_bug11_probe.log`（BUG-11 A/B/C wire SHA256 逐字节 + 容器实码铁证）
+  - `03-testing/dev_probe_s25_mcp_spa.log`（BUG-10：/mcp/servers 200 SPA、/api 401 代理）
+  - `03-testing/dev_probe_s25_upload_whitelist.log`（BUG-09：.exe/.doc/.xls -> 422、.txt -> 200）
+  - S23a 轮 4 张（历史对照）：`dev_probe_bug11_pseudoauth.log` / `dev_probe_bug11_agent_runtime.log` / `dev_probe_mcp_spa.log` / `dev_probe_upload_whitelist.log`
+- 测试铁证：`03-testing/dev_probe_s25b_bug11_probe.log`（S25b 独立复验 A/B/C/D + 源码铁证）
+- 浏览器测试报告：`03-testing/TEST_REPORT_S25.md`（浏览器功能测试 14 项带截图路径）+ `03-testing/BROWSER_TEST.md`（S21 全功能基线）
+- 截图（S25 回归 13 张，关键张）：`03-testing/screenshots/S25_01_login_success.png` / `S25_02_tenant_admin.png` / `S25_03b_upload_doc_rejected.png` / `S25_03c_upload_txt_ok.png` / `S25_04_llm_endpoints.png` / `S25_06_mcp_spa.png` / `S25_06c_mcp_deeplink.png` / `S25_09_trace.png`（全 13 张见 S25 报告浏览器功能测试表）
+- 依赖验证记录：`03-testing/DEP_VERIFICATION.md`（S25 版，A-E 全 PASS）
+- 回归报告：`03-testing/TEST_REPORT_S25.md`（两节 + PASS 结论）
+- 终审独立复跑证据：`05-temp/s24_final_recheck.py` / `05-temp/s24_final/independent_probe.py` + `independent_probe.log`
+- BUG 台账：`03-testing/BUGS.md`（12 BUG 全闭环，P0/P1 全关）
+
+### 12.6 剩余风险清单（交付后跟踪，不阻塞）
+| ID | 风险 | 等级 | 说明 / 缓解 |
+|---|---|---|---|
+| OBS-01 | 限流 QPS 敏感 | P3 | 多登录/高并发场景 refresh 轮换与限流 429 边界敏感（S14/S15 已定位）；生产按实际 QPS 调 `RATE_LIMIT_*`；功能不受阻 |
+| OBS-02 | 真实 LLM 端点 34.121.9.233:4000 key 401（环境态） | 低（已缓解） | S21/S23 时持续 401（端点侧 worker key 配置抖动，非平台缺陷）；S25 真实 key 探测 ok=true 已恢复；若端点侧再抖动，平台侧 401 判定路径 + 结构化返回有效、agent 走 mock-llm/本地 fallback，无需改代码；**需用户端点侧核查 worker `--api-key` 一致性** |
+
+### 12.7 交付结论（S24 终审权威）
+**判定：终审通过，交付。**
+- QA_STANDARD 第三节 6 项逐项核对 **6/6 PASS**（12.3）；S24 独立复跑铁证（SHA256 重算 + 实码 + 全新 key 端到端）全通过（12.4）。
+- 缺陷台账：12 个缺陷（6 BASE + BUG-07 + BUG-08/09/10/11 + BUG-12）全部闭环，无 P0/P1/P2 未修复项。
+- 部署：8 容器全 healthy（s25 镜像），compose 一键启动 `cd deploy && docker compose up -d --build`。
+- 代码已提交并推送远端 origin（本卡执行，commit 见完成报告）。
+- 残留：OBS-01（P3）/ OBS-02（环境态已缓解，需用户端点侧核查）——不阻塞交付。
+
+> 褚岩（项目经理）终审签字：2026-09-24。

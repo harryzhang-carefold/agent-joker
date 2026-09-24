@@ -198,3 +198,12 @@
 - **备选**：①切换时自动迁移既有文件到统一后端（数据搬迁复杂、失败回滚难、超出闭环范围）；②后端配置落 DB 管理面（与 DECISION-012「凭证/存储配置不进 DB、走配置文件」冲突）；③**env + 重启 + 行级 backend 分派 + 运行期配置错误（本方案）**。
 - **理由**：与既有设计裁定（DB_DESIGN §2、STORE-03 验收 3）零冲突；env 注入契合 DECISION-012 与 compose 一键启动约束；行级分派让「保留原后端访问」成为自然行为（`backend` 列本就是每文件落点记录）；运行期配置错误保证无云账号时闭环不崩、配置缺失可诊断。
 - **影响**：`joker_shared/storage/{base,local,gcs,oss,service}.py`（新增）；`services/requirements-cloud.txt`（新增可选云 SDK）；`deploy/docker-compose.yml` / `.env.example`（GCS/OSS env 透传 + STORAGE_BACKEND）；`GET /api/storage/backends` 暴露各后端 configured/error 状态（不含凭证）。本地后端 `/data/storage` 由 api 容器 entrypoint 保证属主（named volume 首启 root 属主问题）。
+
+## DECISION-028（新 QA 标准：用户 2026-09-24 拍板，全体 dev-team 强制遵守）
+- **决策**：自 2026-09-24 起，agent-joker 全部开发/测试/验收工作强制遵守新 QA 标准，落盘为 `03-testing/QA_STANDARD.md`。核心条款：
+  1. **开发自测**：每个新增/修改接口必须真实 HTTP 调用本服务（docker compose 环境）并通过，证据落 `03-testing/dev_probe_<接口>.log`；涉及外部依赖（LLM/embedding/MCP/云存储）的接口必须用"带鉴权或带真实行为"的目标验证，mock 不能替代凭据/鉴权验证；无真实端点时自建拒绝未鉴权请求的本地伪鉴权服务（QA_STANDARD 第四节模板）。
+  2. **测试**：浏览器功能测试强制（每功能页操作步骤 + 截图 + 失败/边界路径，落 `BROWSER_TEST.md`）；测试必须复跑"真实/伪鉴权"验证；测试报告分 `## 浏览器功能测试` 与 `## 接口/依赖验证` 两节。
+  3. **验收**：不得仅凭 mock/单一环境的绿下结论；逐项核对开发自测证据/浏览器报告截图/依赖验证记录/BUGS P0+P1 全关；任一缺失即打回。
+  4. **记录**：每次交付在 `DELIVERY_REPORT.md` 末尾附 `## QA 证据清单`（开发自测日志/浏览器报告/截图/依赖验证路径），供用户抽查。
+- **背景**：BUG-08（LLM 连通性探测不带 API key → 真实端点 401）在 S12 测试、S13 验收、开发自测中全部漏检，根因是三阶段都只用 mock 端点，真实鉴权路径从未执行；随后 S21/S23 又暴露 BUG-11（探测/agent 运行时凭据丢失 + 探测链路发 `***<key>` 掩码值）。用户裁定以制度化标准杜绝"mock 全绿、真端点必挂"。
+- **影响**：S22 按新标准重新终审 → 打回（3 项缺失）→ S23a/S25a 修复（dev_probe 字节级自测 + 浏览器双层 + 伪鉴权）→ S25b 回归 PASS → S24 终审通过（DELIVERY_REPORT §12）。凭据类验证统一升级为 **SHA256 字节级铁证**（抗显示脱敏、抗子串误判）。标准文件 `03-testing/QA_STANDARD.md` 为全体 dev-team 强制遵守基线。

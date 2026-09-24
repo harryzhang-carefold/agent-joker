@@ -19,10 +19,10 @@
 | BUG-05 | P2 | BASE 令牌 | 新 refresh token 换取新 access → 401 | BASE-09「刷新可用」不稳定，需复测确认 | 已关闭（S14 复测未复现：干净刷新 200，原 FAIL 为限流多登录的 refresh 家族轮换产物，E1-E3 PASS） |
 | BUG-06 | P2 | BASE 日志 | 登出操作未见于接口操作日志 | BASE-05 验收 2 未满足 | 已修（S14，probe 复验 F1-F2 PASS） |
 | BUG-07 | P1 | BASE 租户管理 | admin(acme) 点「租户管理」菜单 403；平台管理员无法登录（system 租户无种子用户） | 租户管理功能不可达，非平台用户菜单无权限控制 | 已修（S17，probe 复验 A1-A9/B1-B4 13/13 PASS） |
-| BUG-08 | P2 | LLM 节点（前端+环境态） | LLM 端点连通性测试 HTTP 401（端点本身通）；前端保存/测试/删除失败静默无提示 | 用户误判「平台坏了/没保存成功」；端点侧 401 为外部 vLLM 服务间歇拒绝（非代码缺陷） | 前端已修（S20，回归 8/8 PASS）；端点侧 401 为环境态，需用户在端点侧核查（见 DEV_REPORT_S20 §五） |
-| BUG-09 | P2 | STORE 存储 | 上传 `.doc` 旧格式未返回 422 拒绝（200 落盘成功） | 违反 FEATURES STORE 验收 3（P2-2 设计裁定：.doc 仅指 .docx，.doc 应 422 拒绝并提示转换）；不支持格式绕过白名单 | 已修（S23，commit 5dcaea8）：storage.upload_file 加扩展名 allowlist，.doc→422 提示转 .docx、.exe/.xls→422、.txt→200；证据 `03-testing/dev_probe_upload_whitelist.log` |
-| BUG-10 | P1 | 前端路由/nginx | 浏览器直接访问 `/mcp/servers`（刷新/分享/直连 URL）→ BFF 401 JSON 页面，SPA 未渲染，MCP 模块不可用 | nginx `location ~ ^/(api|v1|mcp)(/|$)` 把前端 SPA 路由 /mcp/* 代理到 BFF；仅侧边栏站内跳转可用 | 已修（S23，commit 5dcaea8）：nginx 正则 `^/(api|v1|mcp)(/|$)` 收窄为 `^/(api|v1)(/|$)`，/mcp 前端 SPA 路由不再误代理 BFF；证据 `03-testing/dev_probe_mcp_spa.log`（GET /mcp/servers → 200 text/html） |
-| BUG-11 | P1 | LLM 节点/Agent 运行时 | 节点已配置 api_key，但「连通性探测」与 agent 运行时 LLM 调用均**不发送 Authorization 凭据**（凭据在 get_endpoint 脱敏时被 pop） | 绑定带 key 真实 LLM 的 agent 对话必然 401/502（核心链路断裂）；带鉴权端点永远探测失败；**BUG-08「探测带鉴权头」修复未生效** | 已修（S23，commit 5dcaea8）：`_row_to_node(keep_secret)` + 内部专用取 key 通道（get_endpoint/embedding/reranker_internal），探测/agent 运行时/嵌入/重排内部链路取回 api_key_enc 正常注入；对外 REST 保持脱敏（DECISION-012）。伪鉴权自测：带 key `has_auth=true`+`ok=true`、无 key `has_auth=false`+`ok=false`（BUG-08 凭据发送路径复核同证）；证据 `03-testing/dev_probe_bug11_pseudoauth.log`。**注**：agent 运行时链路另需 BUG-12（BFF 缺 FERNET_KEY）一并修复才真正生效，见下。 |
+| BUG-08 | P2 | LLM 节点（前端+环境态） | LLM 端点连通性测试 HTTP 401（端点本身通）；前端保存/测试/删除失败静默无提示 | 用户误判「平台坏了/没保存成功」；端点侧 401 为外部 vLLM 服务间歇拒绝（非代码缺陷） | 前端已修（S20，回归 8/8 PASS）。**S25b 复核（2026-09-24，独立复验）**：凭据发送路径已确认修复（BUG-11 A/D 证明平台对真实鉴权端点正确发 `Bearer <key>`）；端点侧 401（OBS-02）已缓解——**真实 key（`deploy/.env LLM_FALLBACK_API_KEY`, len=66）探测 ok=true**；401 判定路径+结构化返回仍有效。平台侧代码闭环，端点侧 401 为环境态（见 §BUG-08「S25b 复核」）。 |
+| BUG-09 | P2 | STORE 存储 | 上传 `.doc` 旧格式未返回 422 拒绝（200 落盘成功） | 违反 FEATURES STORE 验收 3（P2-2 设计裁定：.doc 仅指 .docx，.doc 应 422 拒绝并提示转换）；不支持格式绕过白名单 | 已修（S23，commit 5dcaea8）：storage.upload_file 加扩展名 allowlist，.doc→422 提示转 .docx、.exe/.xls→422、.txt→200；证据 `03-testing/dev_probe_upload_whitelist.log`。**S23 独立复验 PASS**（接口 .doc/.exe/.xls→422 + 友好提示、.txt→200；浏览器 el-upload 上传 .doc 弹「unsupported file type .doc…转 .docx」、.txt 弹「已上传」，截图 `S23_03b/03c_upload_*.png`+`S23_upload_whitelist.png`）。 |
+| BUG-10 | P1 | 前端路由/nginx | 浏览器直接访问 `/mcp/servers`（刷新/分享/直连 URL）→ BFF 401 JSON 页面，SPA 未渲染，MCP 模块不可用 | nginx `location ~ ^/(api|v1|mcp)(/|$)` 把前端 SPA 路由 /mcp/* 代理到 BFF；仅侧边栏站内跳转可用 | 已修（S23，commit 5dcaea8）：nginx 正则 `^/(api|v1|mcp)(/|$)` 收窄为 `^/(api|v1)(/|$)`，/mcp 前端 SPA 路由不再误代理 BFF；证据 `03-testing/dev_probe_mcp_spa.log`（GET /mcp/servers → 200 text/html）。**S23 独立复验 PASS**（浏览器地址栏直连 `/mcp/servers` 渲染 SPA「MCP Server」列表、刷新后仍 SPA，无 401 JSON；`/api/mcp/servers` 真 API 前缀仍 401 代理 BFF 证明收窄精确；截图 `S23_mcp_spa_fixed.png`+`S23_06b_mcp_spa_refresh.png`）。 |
+| BUG-11 | P1 | LLM 节点/Agent 运行时 | 节点已配置 api_key，但「连通性探测」与 agent 运行时 LLM 调用均**不发送 Authorization 凭据**（凭据在 get_endpoint 脱敏时被 pop） | 绑定带 key 真实 LLM 的 agent 对话必然 401/502（核心链路断裂）；带鉴权端点永远探测失败；**BUG-08「探测带鉴权头」修复未生效** | **已关闭（S25a 修复 commit 9fd0a93 + S25b 独立复验 PASS，2026-09-24）**：S25a 修 `_auth_header`（service.py:358）bearer 前缀 `***`→`Bearer `（仅 bearer 分支）。S25b 独立复验（不采信开发自报，测试自定 key `qa-s25b-key-4821`）：A 探测 ok=true + wire=CORRECT_BEARER 逐字节（sha256(`Bearer `+key)=`00e7c05d…8a152b`, len=23）；B 无 key ok=false + NO_HEADER（A/B 正确区分）；C agent 运行时 200+pong 不回归（同 sha）；D 真实端点 ok=true。满足 QA_STANDARD §四 关闭条件。详见 §BUG-11「S25b 回归结论」+ `03-testing/TEST_REPORT_S25.md`。 |
 | BUG-12 | P1 | 部署配置（BFF 网关） | agent 对话（`/v1/chat/completions` → BFF 进程内 `runtime._build_llm`）调用 `crypto.decrypt_secret(api_key_enc)` 失败 → `api_key=*** → `ChatOpenAI("not-needed")` → 带 key 真实 LLM 的 agent 对话必然 401 | BFF 容器**未注入 `FERNET_KEY`**（compose 只给 API 配了），`get_fernet()` 空值时**随机生成 key**，无法解 API（用真实 FERNET_KEY）加密入库的 LLM key；BUG-11 代码修复单独不足以修好 agent 运行时链路（探测链路跑在 API 容器内、有 key，故不受此影响） | 已修（S23）：`deploy/docker-compose.yml` BFF 服务补 `FERNET_KEY: ${FERNET_KEY:-}`（与 API 同一 `.env` 值，byte 一致）+ 重建 BFF 容器。端到端伪鉴权自测：agent 绑带 key 节点 → `/v1/chat/completions` **200 + content="pong" + `has_auth=true`（`Bearer s23afak`）**；证据 `03-testing/dev_probe_bug11_agent_runtime.log` |
 
 > S14 修复报告：02-development/DEV_REPORT_S14.md（根因/改动/复验证据）；
@@ -143,6 +143,12 @@
 - **报告**：02-development/DEV_REPORT_S20.md（6 步完整证据链 + 代码正确性证明 + 端点侧根因假设 + 用户可操作建议）。
 - **影响/闭环**：前端静默吞错已闭环（用户能看出「没保存成功」+ 具体原因）；端点侧 401 为**环境态非平台缺陷**——端点侧修好 key 配置后，平台侧无需改代码，`/test` 自动 `ok:true`（探测逻辑已证明正确）。端点不可用时 agent 走 mock-llm/本地 fallback 兜底（S03/S07 既有设计），平台功能闭环不受影响。
 - **用户可操作建议**（DEV_REPORT_S20 §五）：① 核对 34.121.9.233:4000 的 vLLM 部署，多 worker/副本/LB 时确保每个副本 `--api-key` 完全一致；② 若端点侧按来源限流/鉴权，确认平台容器出口 IP（36.24.190.41，经 NAT）在白名单；③ 端点侧修好后平台侧无需改代码；④ 不可控时把 base_url 指向单实例/同网段可达的 vLLM。
+- **S25b 复核（云天明 独立复验，2026-09-24）**：
+  1. **凭据发送路径（S20 曾疑「探测带鉴权头」失效）→ 已确认修复**：BUG-11 独立复验（A 探测 CORRECT_BEARER + D 真实端点 ok=true）证明平台对真实鉴权端点**正确发出 `Authorization: Bearer <key>`**（S25a 修 `_auth_header` 前缀）。
+  2. **端点侧 401（OBS-02）已缓解/恢复**：S21/S23 时真实 LLM 端点 key 持续 401；**本轮 S25 用真实 key（`deploy/.env LLM_FALLBACK_API_KEY`, len=66）探测 `ok=true`（model=vllm-qwen3.8-27b, 761ms）** → 端点侧 key 当前可用。宿主直连对照：`/v1/models` 带真实 key=404（vLLM 无该路由）、无 key=401（端点要求鉴权）→ 端点确需鉴权，平台侧凭据正确。
+  3. **401 判定路径 + 结构化返回**：端点 401 时平台返回 `{ok:false, summary:"unavailable: HTTP 401"}`（结构化，前端可展示），不崩溃——判定路径有效。
+  4. **前端静默吞错**：S20 已补 `ElMessage.error`；本轮浏览器 M4 假端点探测边界返回结构化 ok=false（前端可展示），无回归。
+  - **复核结论**：BUG-08 平台侧代码链路正确（凭据发送 + 结构化 401 判定 + 前端提示均闭环），端点侧 401 为环境态且**当前已缓解**。无需平台侧改代码。
 
 ---
 
@@ -213,6 +219,31 @@
   - 修复后回归（QA_STANDARD §四）：伪鉴权服务 A 项应 `has_auth=true` + `ok=true`；B 项保持 `has_auth=false`/`ok=false`；绑真实带 key 端点的 agent 对话在端点侧 key 有效时应 200。
 - **依赖**：真实端点 key 当前失效（OBS-02），完整端到端"带 key 真实 LLM 对话 200"需用户在端点侧确认/更新 key 后复测；但**伪鉴权 A 项不依赖外部端点，已充分证明凭据未发送**。
 - **S23 已修复（commit 5dcaea8，方案 A+B 结合）**：`joker_shared/llm/service.py` `_row_to_node(row, keep_secret=False)`（默认 REST 脱敏 pop `api_key_enc`，`keep_secret=True` 保留）+ 新增内部专用取 key 通道 `get_endpoint_internal` / `get_embedding_internal` / `get_reranker_internal`（**仅进程内调用，绝不进 REST**）；`probe_endpoint/probe_embedding/probe_reranker/chat_completion/embed_texts/rerank` 改走 internal 通道；`joker_shared/agents/runtime.py` agent 运行时改 `get_endpoint_internal`，`api_key_enc` 正常 `decrypt_secret` 注入 `ChatOpenAI`。对外 REST 保持脱敏（DECISION-012 不变）。QA_STANDARD §四 伪鉴权自测（宿主 `127.0.0.1:9981` 强制 Authorization 捕获）：**带 key `has_auth=true`+`ok=true`、无 key（对照）`has_auth=false`+`ok=false`**，`BUG11_FIXED=true` —— 凭据确认已发出（BUG-08 凭据发送路径复核同证）。证据 `03-testing/dev_probe_bug11_pseudoauth.log`（run s23a43135，脚本 `05-temp/s23a_probe_bug11_inapi.py` + `s23a_host_pseudoauth.py`）。真实端点 34.121.9.233:4000 持续 401 为环境态 OBS-02，不据此下结论。
+
+- **S23 回归结论（云天明 独立复验，2026-09-24，不采信开发自报）**：✅ **agent 运行时链路已修好**；❌ **探测（probe）链路回归失败，P1 未关闭**。
+  1. **agent 运行时链路（已修，铁证）**：绑带 key 节点（`http://host.docker.internal:9981/v1` + key `qa-s23r-key-9917`）→ `/v1/chat/completions` → **200 + content="pong"**。严格伪鉴权（只接受精确 `Bearer <非空>`）捕获 wire Authorization 值：**len=23，SHA256=`fa633b48…`，与 `"Bearer "+key` 逐字节匹配（CORRECT_BEARER）**。运行时链路凭据正确发出。
+  2. **探测链路（仍坏，铁证）**：同 key 节点点「连通性」`POST /api/llm/endpoints/{id}/test` → **`ok=false`（`unavailable: response has no choices`）**。严格伪鉴权捕获 wire Authorization 值：**len=19，SHA256=`ca17c0ca…`，与 `"***"+key` 逐字节匹配（BROKEN_MASKED），非 Bearer**。即探测发出的是 `Authorization: ***<key>`（星号掩码前缀），对任何真实鉴权端点必 401 → 探测永远判失败。
+  3. **git blob 铁证**：commit 5dcaea8 `services/shared/joker_shared/llm/service.py:358`（`_auth_header`）= `return {"Authorization": "***" + key}`，全文件 **0 处 `"Bearer "`**。`_probe_chat`（L360+）与 `probe_endpoint` 走 `_auth_header` → 探测链路仍用掩码值。
+  4. **开发自测误报定位**：dev 的 `05-temp/s23a_host_pseudoauth.py` 判定 `has_auth = ("authorization" in low) and ("bearer" in low)`——只查 header 存在 + 含 "bearer" 子串，**不校验 token 合法性**；且其 log `dev_probe_bug11_pseudoauth.log` 内 `auth_prefix:"***s23afakekey"` 已暴露星号前缀（`***s23afakekey`），但 DEV_REPORT 描述为 "Bearer s23afakekey"。这正是 QA_STANDARD 要防的「mock 全绿、真鉴权路径从未执行」。
+  5. **复现步骤（独立脚本 `05-temp/s23_qa_bug11_v2.py`，证据 `05-temp/s23_qa_bug11_v2_result.json`）**：
+     - 宿主起严格伪鉴权 `05-temp/s23_qa_pseudoauth_strict.py`（127.0.0.1:9981，只接受 `Bearer <非空>`，log `s23_qa_strict_raw.jsonl` 记 val_len + val_sha256 抗脱敏）。
+     - admin/acme 登录 → 建 LLM 节点 `base_url=http://host.docker.internal:9981/v1` + `api_key=qa-s23r-key-9917` → `POST /api/llm/endpoints/{id}/test` → 观测 wire 捕获 = BROKEN_MASKED、`ok=false`。
+     - 建 agent 绑该节点 → `POST /v1/chat/completions` → 200+pong、wire = CORRECT_BEARER。
+  6. **影响**：任何需鉴权的真实 LLM/embedding/reranker 端点「连通性」永远判失败（用户误判节点不可用）；agent 运行时对话已通。**探测子功能未修 → BUG-11 未完整关闭。**
+  7. **修复建议（探测链路）**：`_auth_header`（service.py:358）对 bearer scheme 应为 `return {"Authorization": "Bearer " + key}`（当前 `"***" + key`）。统一所有走 `_auth_header` 的内部探测/嵌入/重排路径与运行时一致发 `Bearer <key>`。修后按本条第 5 步复验：A 项 wire=CORRECT_BEARER 且 `ok=true`。
+- **S23 严重度/状态**：P1，**部分修复（agent 运行时 ✅ / 探测 ❌），回归失败，阻塞验收**。
+
+- **S25a 修复（commit 9fd0a93）**：`services/shared/joker_shared/llm/service.py:358` `_auth_header` bearer 分支前缀 `***` → `Bearer `（仅 bearer 分支；api_key_header 分支不变）。s25 镜像重建部署（6 容器 healthy，8080→200）。
+
+- **S25b 回归结论（云天明 独立复验，2026-09-24，不采信开发自报，测试自定 key `qa-s25b-key-4821`）**：✅ **探测链路 + agent 运行时链路均已修，BUG-11 可关闭**。
+  1. **A 探测链路（铁证）**：建带 key 节点（`http://host.docker.internal:9981/v1` + key `qa-s25b-key-4821`）→ `POST /api/llm/endpoints/{id}/test` → **200 ok=true**。严格伪鉴权捕获 wire Authorization：**len=23，SHA256=`00e7c05df58d8ff159b954b046a46f42f5c14497f822f9299f994601db8a152b`**。独立重算 `sha256("Bearer "+key)=00e7c05d…`（len=23）**逐字节精确匹配（CORRECT_BEARER）**；与 S23 缺陷形态 `sha256("***"+key)=eef7ec0d…`（len=19, BROKEN_MASKED）**不匹配**。**S23 的 BROKEN_MASKED 回归已消除。**
+  2. **B 无 key 对照（正确区分）**：同 base 无 key → 探测 **ok=false「unavailable: response has no choices」**；wire **has_header=false, val_len=0, val_sha256=null（NO_HEADER）**。与 A 可精确区分（A=CORRECT_BEARER / B=NO_HEADER）。
+  3. **C agent 运行时不回归**：建 agent 绑带 key 节点 → `POST /v1/chat/completions` → **200 content="pong"**；wire **len=23, SHA256=`00e7c05d…`（CORRECT_BEARER，同 A 逐字节）**。
+  4. **D 真实端点端到端（强铁证）**：真实 LLM 端点 `34.121.9.233:4000/v1` + 真实 key（`deploy/.env LLM_FALLBACK_API_KEY`, len=66, 无掩码点）→ 平台探测 **ok=true「ok: model=vllm-qwen3.8-27b responded in 761ms」**。真实鉴权端点连通性探测通过（比伪鉴权更强的端到端确认）。OBS-02 的 401 已缓解/恢复。
+  5. **源码铁证（容器实码）**：`docker exec joker-api` `/app/joker_shared/llm/service.py:358` = `return {"Authorization": "Bearer " + key}`；全文件 `Bearer `×1、`***`×0 → 探测/嵌入/重排链路（均走 `_auth_header`）与运行时统一发 `Bearer <key>`。
+  6. **复现步骤（独立脚本 `05-temp/s25b/s25b_bug11_probe.py`，证据 `s25b_bug11_result.json` + `s25b_strict_raw.jsonl`，铁证 log `03-testing/dev_probe_s25b_bug11_probe.log`）**：宿主起严格伪鉴权（`05-temp/s25b/s25b_strict_pseudoauth.py`，127.0.0.1:9981）→ admin/acme 登录 → 建带 key 节点 → 探测（A）+ 无 key 对照（B）+ 建 agent 对话（C）→ 读 `s25b_bug11_result.json`：`verdict` 六项全 true、`BUG11_OVERALL_PASS=true`。
+  7. **判定**：A 项 wire=CORRECT_BEARER 且 ok=true（满足 QA_STANDARD §四 关闭条件）+ A/B 行为正确区分 + 运行时不回归 + 真实端点 ok=true。**BUG-11 关闭。**
+- **S25b 严重度/状态**：P1，**已修复并独立复验 PASS，关闭**（2026-09-24）。详见 `03-testing/TEST_REPORT_S25.md`。
 
 ---
 

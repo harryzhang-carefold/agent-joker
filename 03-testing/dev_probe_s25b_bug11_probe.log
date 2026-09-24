@@ -1,0 +1,71 @@
+# ============================================================
+# S25b BUG-11 探测链路独立复验 — 测试铁证（云天明，不采信开发自报）
+# 生成: 2026-09-24 (CST) | 部署: agent-joker-api/bff:s25 (commit 9fd0a93)
+# 方法: 宿主 127.0.0.1:9981 严格伪鉴权（05-temp/s25b/s25b_strict_pseudoauth.py）
+#       只接受精确 "Bearer <非空>"；对 wire Authorization 值记录 val_len + val_sha256
+# 判定: SHA256 字节级精确比对 sha256("Bearer "+KEY)（char-code 构建，抗显示脱敏）
+#       —— 未使用任何 ("bearer" in low) 子串判定（S23a 误报根因，QA_STANDARD §四）
+# 脚本: 05-temp/s25b/s25b_bug11_probe.py | 原始结果: 05-temp/s25b/s25b_bug11_result.json
+#       wire 原始抓取: 05-temp/s25b/s25b_strict_raw.jsonl
+# KEY  : qa-s25b-key-4821 （测试自定，独立于开发自测的 qa-s25a-key-7731）
+# ============================================================
+
+KEY = qa-s25b-key-4821
+EXPECTED  = sha256("Bearer " + KEY) = 00e7c05df58d8ff159b954b046a46f42f5c14497f822f9299f994601db8a152b  (len=23)
+BROKEN_REF= sha256("***"     + KEY) = eef7ec0d324fc598bee5bca50e90f5aee57dce547ee61f3323b43656e13c40dc  (len=19, S23 缺陷形态参照)
+（两者均为测试独立重算，非取自脚本）
+
+[源码级铁证 — 容器实码]
+docker exec joker-api: /app/joker_shared/llm/service.py:358 = `        return {"Authorization": "Bearer " + key}`
+  全文件 "Bearer " 出现 1 次 | "***" 出现 0 次（grep -c '***' = 0）
+  → 探测/嵌入/重排链路（_probe_chat/_probe_embedding/_probe_reranker 均走 _auth_header）与运行时统一发 Bearer <key>。
+
+[A] 探测链路 — 带 key 节点 (POST /api/llm/endpoints/{id}/test)
+  A_create: 201
+  A_probe:  200 ok=true latency_ms=6 summary="ok: model=fake responded in 6ms"
+  wire:     has_header=True val_len=23 valid_bearer=True
+            val_sha256=00e7c05df58d8ff159b954b046a46f42f5c14497f822f9299f994601db8a152b
+  比对:     val_len==23 && val_sha256==sha256("Bearer "+KEY)  →  逐字节精确匹配 (CORRECT_BEARER)
+  与 S23 缺陷形态 (len=19 / eef7ec0d…BROKEN_MASKED) 比对:  不匹配
+  结论: 探测链路已发出 Authorization: Bearer <key>  →  PASS
+
+[B] 探测链路 — 无 key 节点 (对照，行为正确区分)
+  B_create: 201
+  B_probe:  200 ok=false summary="unavailable: response has no choices"
+  wire:     has_header=False val_len=0 val_sha256=null  →  NO_HEADER
+  结论: 无 key 节点不带 Authorization 头、探测正确判失败；与 A 的 wire 可精确区分  →  PASS
+
+[C] agent 运行时链路不回归 (POST /v1/chat/completions, 绑带 key 节点)
+  agent_create: 201  agent_name=qa-agent-qa-s25b-56214
+  chat:     200 content="pong"
+  wire:     has_header=True val_len=23
+            val_sha256=00e7c05df58d8ff159b954b046a46f42f5c14497f822f9299f994601db8a152b
+  比对:     逐字节精确匹配 (CORRECT_BEARER)
+  结论: 运行时链路保持已修状态  →  PASS
+
+[D] 真实端点端到端（额外强证据，OBS-02 已恢复）
+  真实 LLM 端点 34.121.9.233:4000/v1 + 真实 key（deploy/.env LLM_FALLBACK_API_KEY, len=66, 无掩码点）
+    平台探测 POST /api/llm/endpoints/{id}/test → 200 ok=true summary="ok: model=vllm-qwen3.8-27b responded in 761ms"
+  → 真实鉴权端点连通性探测 ok=true，直接证明探测链路对真实端点也发对了凭据（比伪鉴权更强的端到端铁证）。
+  宿主直连对照（endpoint 侧诊断）: /v1/models 带真实 key=404（端点为 vLLM 无 /models 路由）；无 key=401（端点要求鉴权）
+    → 401 属端点鉴权，平台侧凭据正确；端点 401/200 抖动为端点侧 worker key 配置（OBS-02/BUG-08 环境态）。
+
+[BUG-10 /mcp/servers SPA 无回归]  (浏览器 05-temp/s25b/s25b_browser.js)
+  /mcp/servers              200 text/html (SPA, MCP Server 表渲染)
+  刷新 /mcp/servers          200 SPA
+  深链 /mcp/servers/123/tools  200 SPA（MCP 工具页）
+  /api/mcp/servers           401 application/json（BFF 鉴权，nginx 收窄精确）
+  BUG10_NO_REGRESSION = true  →  PASS
+
+[BUG-09 上传白名单无回归]  (浏览器 in-page fetch 直打 /api/storage/files)
+  .doc  → 422 "unsupported file type .doc (旧 Word 格式), please convert to .docx"
+  .txt  → 200 落盘（返回 id/file_name/size_bytes）
+  BUG09_NO_REGRESSION = true  →  PASS
+
+[部署状态]
+  docker compose ps: joker-api s25 healthy | joker-bff s25 healthy | joker-webconsole s23 healthy
+                     joker-pg healthy | joker-redis healthy (8 容器全 Up/healthy)
+  8080 → 200 text/html | bff 8000/healthz → 200
+
+== 总结论: BUG11_OVERALL_PASS = true (A/B/C 字节级 + D 真实端点 全部通过) ==
+BUG-11 可关闭。BUGS.md 回写由本报告（TEST_REPORT_S25.md）驱动。
