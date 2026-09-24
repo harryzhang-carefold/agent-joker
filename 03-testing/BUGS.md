@@ -20,6 +20,9 @@
 | BUG-06 | P2 | BASE 日志 | 登出操作未见于接口操作日志 | BASE-05 验收 2 未满足 | 已修（S14，probe 复验 F1-F2 PASS） |
 | BUG-07 | P1 | BASE 租户管理 | admin(acme) 点「租户管理」菜单 403；平台管理员无法登录（system 租户无种子用户） | 租户管理功能不可达，非平台用户菜单无权限控制 | 已修（S17，probe 复验 A1-A9/B1-B4 13/13 PASS） |
 | BUG-08 | P2 | LLM 节点（前端+环境态） | LLM 端点连通性测试 HTTP 401（端点本身通）；前端保存/测试/删除失败静默无提示 | 用户误判「平台坏了/没保存成功」；端点侧 401 为外部 vLLM 服务间歇拒绝（非代码缺陷） | 前端已修（S20，回归 8/8 PASS）；端点侧 401 为环境态，需用户在端点侧核查（见 DEV_REPORT_S20 §五） |
+| BUG-09 | P2 | STORE 存储 | 上传 `.doc` 旧格式未返回 422 拒绝（200 落盘成功） | 违反 FEATURES STORE 验收 3（P2-2 设计裁定：.doc 仅指 .docx，.doc 应 422 拒绝并提示转换）；不支持格式绕过白名单 | 已修（S23，commit 5dcaea8）：storage.upload_file 加扩展名 allowlist，.doc→422 提示转 .docx、.exe/.xls→422、.txt→200；证据 `03-testing/dev_probe_upload_whitelist.log` |
+| BUG-10 | P1 | 前端路由/nginx | 浏览器直接访问 `/mcp/servers`（刷新/分享/直连 URL）→ BFF 401 JSON 页面，SPA 未渲染，MCP 模块不可用 | nginx `location ~ ^/(api|v1|mcp)(/|$)` 把前端 SPA 路由 /mcp/* 代理到 BFF；仅侧边栏站内跳转可用 | 已修（S23，commit 5dcaea8）：nginx 正则 `^/(api|v1|mcp)(/|$)` 收窄为 `^/(api|v1)(/|$)`，/mcp 前端 SPA 路由不再误代理 BFF；证据 `03-testing/dev_probe_mcp_spa.log`（GET /mcp/servers → 200 text/html） |
+| BUG-11 | P1 | LLM 节点/Agent 运行时 | 节点已配置 api_key，但「连通性探测」与 agent 运行时 LLM 调用均**不发送 Authorization 凭据**（凭据在 get_endpoint 脱敏时被 pop） | 绑定带 key 真实 LLM 的 agent 对话必然 401/502（核心链路断裂）；带鉴权端点永远探测失败；**BUG-08「探测带鉴权头」修复未生效** | 已修（S23，commit 5dcaea8）：`_row_to_node(keep_secret)` + 内部专用取 key 通道（get_endpoint/embedding/reranker_internal），探测/agent 运行时/嵌入/重排内部链路取回 api_key_enc 正常注入；对外 REST 保持脱敏（DECISION-012）。伪鉴权自测：带 key `has_auth=true`+`ok=true`、无 key `has_auth=false`+`ok=false`（BUG-08 凭据发送路径复核同证）；证据 `03-testing/dev_probe_bug11_pseudoauth.log` |
 
 > S14 修复报告：02-development/DEV_REPORT_S14.md（根因/改动/复验证据）；
 > 复验 probe：05-temp/probe_s14_v2.py（29/29 PASS，run 见 DEV_REPORT §回归）。
@@ -139,6 +142,76 @@
 - **报告**：02-development/DEV_REPORT_S20.md（6 步完整证据链 + 代码正确性证明 + 端点侧根因假设 + 用户可操作建议）。
 - **影响/闭环**：前端静默吞错已闭环（用户能看出「没保存成功」+ 具体原因）；端点侧 401 为**环境态非平台缺陷**——端点侧修好 key 配置后，平台侧无需改代码，`/test` 自动 `ok:true`（探测逻辑已证明正确）。端点不可用时 agent 走 mock-llm/本地 fallback 兜底（S03/S07 既有设计），平台功能闭环不受影响。
 - **用户可操作建议**（DEV_REPORT_S20 §五）：① 核对 34.121.9.233:4000 的 vLLM 部署，多 worker/副本/LB 时确保每个副本 `--api-key` 完全一致；② 若端点侧按来源限流/鉴权，确认平台容器出口 IP（36.24.190.41，经 NAT）在白名单；③ 端点侧修好后平台侧无需改代码；④ 不可控时把 base_url 指向单实例/同网段可达的 vLLM。
+
+---
+
+## BUG-09（P2）上传 `.doc` 旧格式未 422 拒绝（S21 浏览器+接口双重复现）
+- **现象**：存储模块上传 `.doc`（旧 Word 格式）→ 浏览器 toast「已上传 s21_r362429_bad.doc」+ API `POST /api/storage/files` 返回 **200**，文件落盘成功（`backend=local`，`content_type=application/msword`）。
+- **预期**（FEATURES STORE 验收 3，P2-2 设计裁定 2026-09-22，原文「`.doc` 旧格式不在支持范围（'word' 仅指 `.docx`）：上传 `.doc` 返回 422 拒绝并提示转 `.docx`」）：应 **422** 拒绝 + 提示转 `.docx`。
+- **复现步骤**：
+  1. 浏览器：WebConsole 存储→文件上传记录→「上传文件」选任意 `.doc` → 提示「已上传」，列表出现该文件。
+  2. 接口（等价）：`POST /api/storage/files?source=api`（multipart file=s21f.doc, content-type=application/msword）→ **200** + 文件记录。
+  3. 扩展核对（`05-temp/s21_bug12_check.py`）：`.exe` / `.xls` 同样 **200** 落盘——**格式白名单在后端完全未校验**（不止 .doc）。
+- **根因（推测，需开发确认）**：`services/api/app/routers/storage.py` `upload_file`（L43-54）未对扩展名/content-type 做 allowlist 校验（前端 `accept=".txt,.md,.docx,.xlsx,.pdf,.png,.jpg"` 仅是浏览器选择框提示，非强制），故任意扩展名直传 API 均 200。
+- **影响**：违反文档化验收点（P2-2）；不支持格式（含 .exe 等可执行文件）可写入平台存储，属功能缺失 + 潜在安全隐患（存储内可存任意二进制）。
+- **严重度**：P2（功能/验收缺失 + 安全弱项）。**阻塞验收**（QA_STANDARD §三：P2 未关闭不得交付）。
+- **修复建议**：后端 `upload_file` 增加扩展名 allowlist（与前端 accept 一致）+ 内容 sniff 校验，非白名单返回 422 + detail「不支持的格式，.doc 请转为 .docx」。
+- **S23 已修复（commit 5dcaea8）**：`services/api/app/routers/storage.py` 新增 `ALLOWED_UPLOAD_EXTS={.txt .md .pdf .docx .xlsx .csv}` + `_check_upload_ext()`，`upload_file` 入口调用（.doc→422 提示转 .docx、其余非白名单→422）；前端 `FilesView.vue` `accept` 对齐。真实 HTTP 自测（webconsole→bff→api）：`.doc/.exe/.xls`→422、`.txt`→200，`BUG09_FIXED=true`，证据 `03-testing/dev_probe_upload_whitelist.log`（脚本 `05-temp/s23a_probe_bug09_upload.py`）。
+
+---
+
+## BUG-10（P1）浏览器直接访问 `/mcp/servers` 命中 BFF 401，SPA 未渲染（nginx 路由冲突）
+- **现象**：在浏览器**地址栏直接输入/刷新/分享** `http://<host>/mcp/servers` → 页面显示 BFF 返回的 **401 JSON**（`{"detail":"missing access token"}` +「美观输出」勾选框的 API 响应查看器），**SPA 布局（侧边栏/菜单）完全未渲染**，MCP 模块在该入口不可用。
+  - 对照：管理台内**侧边栏点击**进入 MCP Server → 正常渲染 12 台 server（SPA 客户端路由生效）。
+  - 对照：直接访问 `/agents` 等其他 SPA 路由 → 正常渲染。
+- **预期**：SPA history 路由应 fallback 到 `index.html`（nginx `location / { try_files $uri $uri/ /index.html; }`），`/mcp/servers` 应加载 SPA 并在登录态下展示 MCP 列表。
+- **根因（代码级确认）**：`deploy/nginx/nginx.conf:43`
+  ```
+  location ~ ^/(api|v1|mcp)(/|$) { proxy_pass http://bff:8000; }
+  ```
+  正则 `^/(api|v1|mcp)(/|$)` 把**前端 SPA 路由 `/mcp/servers`、`/mcp/servers/{id}/tools`** 也匹配进去代理到 BFF；BFF 无该路由的匿名处理 → 401 JSON 直接返回给浏览器。前端 MCP 路由（`/mcp/servers`、`/mcp/servers/:serverId/tools`）与 API 前缀 `/api/mcp` 撞车（API 走 `/api/mcp`，但 SPA 路由用了 `/mcp`）。
+- **复现步骤**：
+  1. 登录 WebConsole（任一有效账号）。
+  2. 地址栏直接输入 `http://localhost:8080/mcp/servers` 回车（或在 MCP 页按 F5）→ 得到 401 JSON 页（非管理台）。
+  3. 截图：`03-testing/screenshots/MCP_repro_direct.png`（401 JSON）vs `MCP_repro_sidebar.png`（侧边栏进入正常）。
+- **影响**：MCP 模块对用户**仅能靠侧边栏站内跳转**访问；刷新/收藏/分享 `/mcp/*` 链接全部坏掉；用户误以为平台未登录或坏了。属**用户可见功能不可达**（QA_STANDARD §三验收阻断项级别）。
+- **严重度**：P1（用户可见功能在常见操作路径下不可用）。**阻塞验收**。
+- **修复建议（二选一，推荐 A）**：
+  - A. nginx 正则改为仅匹配 API 前缀：`location ~ ^/(api|v1)(/|$)`（MCP 的 API 均在 `/api/mcp` 下，`/mcp` 代理分支可移除）——最小改动，消除冲突。
+  - B. 前端 MCP 路由改前缀（如 `/mcp-servers`）避开 `/mcp`——需改路由+菜单。
+  - 修复后回归：直连 `/mcp/servers` 应渲染 SPA（未登录→跳 /login，登录后→MCP 列表）。
+- **S23 已修复（commit 5dcaea8，方案 A）**：`deploy/nginx/nginx.conf` 正则 `^/(api|v1|mcp)(/|$)` → `^/(api|v1)(/|$)`，移除 `/mcp` 分支（MCP 的 REST 都在 `/api/mcp` 下，`/mcp` 为前端 SPA 路由，现由 `location /` fallback 渲染）。真实 HTTP 自测（宿主 8080 直连）：`GET /mcp/servers` → **200 text/html**（SPA 壳），`/mcp/servers/123/tools` 与 `/` 同 200 text/html，`BUG10_FIXED=true`，证据 `03-testing/dev_probe_mcp_spa.log`（脚本 `05-temp/s23a_probe_bug10_mcp_spa.py`）。
+
+---
+
+## BUG-11（P1）LLM 节点已配 api_key，但连通性探测与 agent 运行时均不发送 Authorization 凭据（BUG-08 修复未生效 + agent 链路断裂）
+- **现象**（QA_STANDARD §四「伪鉴权本地服务」复验，**直接命中**）：
+  1. 建 LLM endpoint 节点 `base_url=http://127.0.0.1:9981/v1` + **`api_key=s21fakekey123456`** → 点「连通性」。
+  2. 伪鉴权服务（强制要求 Authorization 头，收到则 `ok=true`）捕获到的请求：**`has_auth=false`（空 Authorization）** → 探测返回 `ok=false "unavailable: response has no choices"`。
+  3. **预期**（QA_STANDARD §四）：`has_auth=true` + `ok=true`。
+  4. 对照组（无 key 节点）：`has_auth=false`、`ok=false`——与带 key 节点**完全无法区分**，证明平台把"带 key 节点"当成"无 key 节点"处理。
+- **连带（更严重）**：agent 运行时同样中招（`05-temp/s21_bug11_proof.py` 复现）：
+  - agent `s08-e2e-agent-1790138772`（四要素绑定 `platform-fallback-llm` = 真实 34.121.9.233:4000/v1 + key）经 BFF `/v1/chat/completions`（浏览器对话同款入口）→ **502 `LLM call failed (round 1): AuthenticationError: 401`**。
+  - 对照组（绑 mock LLM，无需鉴权）同路径 → **200** 正常回复。
+  - 即：**绑定"带 key 真实 LLM"的 agent，对话必然 401/502，核心对话链路断裂**。
+- **根因（代码级定位，joker-api 容器 /app 实码）**：
+  1. `joker_shared/llm/service.py:48` `_row_to_node`：`enc = d.pop("api_key_enc", None)` → 脱敏时**把加密 key 从 node dict 删除**，只留 `api_key_set` 布尔（DECISION-012 合规的"响应脱敏"，但此处被内部调用复用）。
+  2. `service.py:431` `probe_endpoint`：`node = await self.get_endpoint(...)` → 走 `_row_to_node` → node **已无 `api_key_enc`**。
+  3. `service.py:348` `_probe_chat`：`headers=self._auth_header(node.get("api_key_enc"), …)`；`_auth_header`（L321）对 `None` → `return {}` → **探测请求不带 Authorization**。
+  4. `joker_shared/agents/runtime.py:436`：`node = await llm_svc.get_endpoint(...)` → 同样脱敏；`runtime.py:443` `if node.get("api_key_enc"):` 恒 False → `api_key=None` → `ChatOpenAI(api_key="not-needed")` → 真实 LLM 401。
+- **与 BUG-08 关系**：S20 声称"连通性探测带鉴权头"已修（前端静默 catch 已修、回归 8/8），但**探测请求构造路径上的凭据丢失未被发现**——S20 的 6 步证据链证明的是"key 存对、解密正确、请求发出"，其第 5 步用"库中 key 直连端点"验证的是**外部端点行为**，从未验证"**平台发出的探测请求里是否带 key**"。QA_STANDARD §四伪鉴权模板正是为暴露此类"mock 全绿、真鉴权路径从未执行"而设——本次复验直接命中。
+- **复现/证据**：
+  - 伪鉴权：`05-temp/s21_dep_verify.py`（容器内运行）→ `05-temp/s21_dep_result.json`（A_received_requests `has_auth=false`）。
+  - agent 502：`05-temp/s21_bug11_proof.py` → `05-temp/s21_bug11_proof.out`。
+  - 截图：`03-testing/screenshots/dep_verify_bug11.png`。
+- **影响**：① 任何**需鉴权的真实 LLM/embedding/reranker 端点**，平台「连通性」永远判失败（用户误判节点不可用）；② **绑定带 key 真实 LLM 的 agent 对话必然 401/502**（核心链路）；③ 与 BUG-08 同源，说明 S20 的"已修"结论**部分不成立**（前端提示已修，但凭据发送未修）。
+- **严重度**：P1（核心链路 + 用户可见功能不可用 + 安全凭据丢失）。**阻塞验收**（QA_STANDARD §三）。
+- **修复建议**：区分"响应脱敏"与"内部取 key"两条路径——
+  - 方案 A（推荐）：`get_endpoint` 保持脱敏（对外安全），**内部** `probe_endpoint`/`runtime` 改用带 key 的库行查询（如新增 `get_endpoint_internal` 返回含 `api_key_enc` 的原始行，仅限进程内使用、绝不外发响应）。
+  - 方案 B：`_row_to_node` 增加 `keep_secret` 参数，内部调用传 True。
+  - 修复后回归（QA_STANDARD §四）：伪鉴权服务 A 项应 `has_auth=true` + `ok=true`；B 项保持 `has_auth=false`/`ok=false`；绑真实带 key 端点的 agent 对话在端点侧 key 有效时应 200。
+- **依赖**：真实端点 key 当前失效（OBS-02），完整端到端"带 key 真实 LLM 对话 200"需用户在端点侧确认/更新 key 后复测；但**伪鉴权 A 项不依赖外部端点，已充分证明凭据未发送**。
+- **S23 已修复（commit 5dcaea8，方案 A+B 结合）**：`joker_shared/llm/service.py` `_row_to_node(row, keep_secret=False)`（默认 REST 脱敏 pop `api_key_enc`，`keep_secret=True` 保留）+ 新增内部专用取 key 通道 `get_endpoint_internal` / `get_embedding_internal` / `get_reranker_internal`（**仅进程内调用，绝不进 REST**）；`probe_endpoint/probe_embedding/probe_reranker/chat_completion/embed_texts/rerank` 改走 internal 通道；`joker_shared/agents/runtime.py` agent 运行时改 `get_endpoint_internal`，`api_key_enc` 正常 `decrypt_secret` 注入 `ChatOpenAI`。对外 REST 保持脱敏（DECISION-012 不变）。QA_STANDARD §四 伪鉴权自测（宿主 `127.0.0.1:9981` 强制 Authorization 捕获）：**带 key `has_auth=true`+`ok=true`、无 key（对照）`has_auth=false`+`ok=false`**，`BUG11_FIXED=true` —— 凭据确认已发出（BUG-08 凭据发送路径复核同证）。证据 `03-testing/dev_probe_bug11_pseudoauth.log`（run s23a43135，脚本 `05-temp/s23a_probe_bug11_inapi.py` + `s23a_host_pseudoauth.py`）。真实端点 34.121.9.233:4000 持续 401 为环境态 OBS-02，不据此下结论。
 
 ---
 
