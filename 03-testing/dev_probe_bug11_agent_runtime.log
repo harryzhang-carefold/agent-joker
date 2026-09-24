@@ -1,0 +1,61 @@
+{
+  "run": "s23a-agent-45836",
+  "ts": "2026-09-24T10:30:36Z",
+  "host_llm": "http://host.docker.internal:9981/v1",
+  "endpoint_create_status": 201,
+  "endpoint_id": "ea9fad1b-bb8a-412b-8053-dcf0c39dd29e",
+  "agent_create_status": 201,
+  "agent_name": "fakeauth-agent-s23a-agent-45836",
+  "agent_bound_endpoint_ids": [
+    "ea9fad1b-bb8a-412b-8053-dcf0c39dd29e"
+  ],
+  "endpoint_api_key_set": true,
+  "agent_stored_endpoint_ids": [
+    "ea9fad1b-bb8a-412b-8053-dcf0c39dd29e"
+  ],
+  "chat_status": 200,
+  "chat_response": {
+    "id": "chatcmpl-29166353-db0d-4e30-9806-",
+    "object": "chat.completion",
+    "created": 1790245836,
+    "model": "fakeauth-agent-s23a-agent-45836",
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "stop",
+        "message": {
+          "role": "assistant",
+          "content": "pong",
+          "tool_calls": []
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "joker": {
+      "session_id": "29166353-db0d-4e30-9806-b39b3619ad6c",
+      "citations": [],
+      "agent_id": "1e1fd234-ef17-4f3d-ae2d-81a61af0dabb"
+    }
+  },
+  "received_requests": [
+    {
+      "has_auth": true,
+      "auth_prefix": "Bearer s23afak",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    }
+  ],
+  "agent_runtime_llm_requests": [
+    {
+      "has_auth": true,
+      "auth_prefix": "Bearer s23afak",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    }
+  ],
+  "agent_runtime_has_auth": true,
+  "cleanup": "deleted agent + endpoint",
+  "BUG11_AGENT_RUNTIME_FIXED": true
+}

@@ -99,7 +99,43 @@
 
 ---
 
-## 四、改动文件清单（本次提交）
+## 四、BUG-12（P1，S23 新发现）— BFF 容器缺 `FERNET_KEY`，agent 运行时解密 LLM key 失败
+
+> **重要：BUG-11 的修复需要两处改动，只改代码（BUG-11）不够。** 本卡验证 agent 运行时
+> 端到端时新发现此缺陷（P1），一并修复。
+
+### 4.1 现象与定位
+- 仅应用 BUG-11 代码修复后，**探测链路**（跑在 API 容器内）正常发出凭据（`has_auth=true`），
+  但 **agent 对话链路**（`/v1/chat/completions` → BFF 进程内 `runtime._build_llm`）仍发送
+  `Bearer not-needed`（非真实 key）→ 带 key 真实 LLM 的 agent 对话必然 401。
+- 逐层定位（在 `joker-api` 容器内复刻运行时 L436-445 路径，单独验证 `get_endpoint_internal`
+  能取回 `api_key_enc`（len 120）、`decrypt_secret` 成功（len 16）——**代码路径正确**）。
+- 真正根因：**agent 对话在 BFF 容器内进程执行**（`openai_compat._run_agent → AgentService.chat`），
+  而 `deploy/docker-compose.yml` 只给 **API** 服务配了 `FERNET_KEY`（L101），**BFF 服务（L60-72）未配**。
+  `joker_shared/crypto.py:get_fernet()`（L181-191）在 `FERNET_KEY` 为空时**随机生成 key**（每次进程启动不同），
+  于是 BFF 用随机 key 去解 API（用真实 `FERNET_KEY`）加密入库的 `api_key_enc` → `decrypt_secret` 抛
+  `ValueError` → 被 `runtime.py:444-447` 捕获 → `api_key=*** → `ChatOpenAI(api_key="not-needed")`。
+- **为何探测链路不受影响**：探测（`/test`）跑在 **API** 容器内，API 有真实 `FERNET_KEY`，解密正常。
+  这正是「代码修复对了、但部署配置漏配」导致 agent 运行时链路单独断裂。
+
+### 4.2 修复
+- `deploy/docker-compose.yml`：**BFF** 服务 `environment` 增加 `FERNET_KEY: ${FERNET_KEY:-}`
+  （与 API 从同一 `deploy/.env` 取值，**byte 完全一致**，已用 sha256 前 16 位核对 `3e317dedad78d202` 一致）。
+- 重建 `joker-bff` 容器（`docker compose up -d bff`）使其加载新 env（s23 镜像代码已含 BUG-11 修复，无需重建镜像，仅重建容器）。
+
+### 4.3 自测证据（端到端，QA_STANDARD §四 伪鉴权，真实 HTTP）
+- 脚本 `05-temp/s23a_probe_bug11_agent_runtime.py`：建带 key 的 LLM 节点（`base_url=host.docker.internal:9981/v1`）→ 建 simple agent 绑定该节点 → `POST /v1/chat/completions`（BFF OpenAI 兼容，model=agent 名）→ BFF→API→runtime→ChatOpenAI→伪鉴权服务。
+- 修复后结果（run `s23a-agent-45836`）：
+  - **`chat_status=200`**、**`content="pong"`**（伪鉴权服务对带 Authorization 请求的响应）。
+  - 伪鉴权服务捕获 **`has_auth=true`**、`auth_prefix="Bearer s23afak"`（真实 key `s23afakekey123456` 前 14 字符）——**agent 运行时确实发出凭据**。
+  - `BUG11_AGENT_RUNTIME_FIXED=true`。
+- 对照（修复前，同脚本同环境）：`chat_status=502`、`auth_prefix="Bearer not-nee"`（`not-needed`）——证明 BFF 缺 key 时的断裂行为。
+- 落盘：`03-testing/dev_probe_bug11_agent_runtime.log`。
+- **结论**：BUG-11（代码）+ BUG-12（BFF FERNET_KEY）**联合**修复后，绑定带 key LLM 的 agent 对话经全链路真实发出凭据并得到 200。真实端点 34.121.9.233:4000 持续 401 为环境态 OBS-02（需用户端点侧核查 key），不据此下「真实 LLM 对话 200」结论——伪鉴权 200 已充分证明「凭据确实发出」。
+
+---
+
+## 五、改动文件清单（本次提交）
 | 文件 | 改动 | BUG |
 |---|---|---|
 | `services/shared/joker_shared/llm/service.py` | `_row_to_node(keep_secret)` + 3 个 internal 取 key 方法；探测/对话/embedding/rerank 内部链路改走 internal 通道 | BUG-11 |
@@ -107,32 +143,33 @@
 | `deploy/nginx/nginx.conf` | 正则 `^/(api\|v1\|mcp)` → `^/(api\|v1)`（移除 /mcp SPA 路由误代理） | BUG-10 |
 | `frontend/src/views/storage/FilesView.vue` | `accept` 对齐存储白名单 | BUG-09/10 |
 | `services/api/app/routers/storage.py` | 扩展名 allowlist 校验（`.doc/.exe/.xls`→422） | BUG-09 |
-| `deploy/docker-compose.yml` | 镜像 tag `s17` → `s23`（api/bff/webconsole） | 部署 |
+| `deploy/docker-compose.yml` | 镜像 tag `s17` → `s23`（api/bff/webconsole）；**BFF 服务补 `FERNET_KEY`**（与 API 同值） | 部署 / BUG-12 |
 | `.gitignore` | 加 `!03-testing/dev_probe_*.log` 例外（自测证据入 git） | 自测证据 |
 | `.dockerignore` | 构建上下文瘦身（排除 node_modules/.git/测试文档产物，避免进 docker build） | 部署 |
 
-> 说明：`.dockerignore` 与 `deploy/docker-compose.yml` 的镜像 tag 改动为 s23 重建镜像所需，随本次修复一并纳入。
+> 说明：`.dockerignore` 与 `deploy/docker-compose.yml` 的镜像 tag 改动为 s23 重建镜像所需，随本次修复一并纳入；**BFF `FERNET_KEY` 为 BUG-12 修复**（agent 运行时解密 LLM key 必需）。
 
-## 五、自测证据（QA_STANDARD §一 落盘）
+## 六、自测证据（QA_STANDARD §一 落盘）
 | 证据 | 路径 | 关键结果 |
 |---|---|---|
-| BUG-11 伪鉴权 | `03-testing/dev_probe_bug11_pseudoauth.log` | 带 key `has_auth=true`+`ok=true`；无 key `has_auth=false`+`ok=false`；`BUG11_FIXED=true` |
+| BUG-11 伪鉴权（探测链路） | `03-testing/dev_probe_bug11_pseudoauth.log` | 带 key `has_auth=true`+`ok=true`；无 key `has_auth=false`+`ok=false`；`BUG11_FIXED=true`（run s23a43135） |
+| BUG-11/BUG-12 伪鉴权（**agent 运行时链路**） | `03-testing/dev_probe_bug11_agent_runtime.log` | 绑带 key 节点 agent 对话 `chat_status=200`+`content="pong"`+`has_auth=true`（`Bearer s23afak`）；`BUG11_AGENT_RUNTIME_FIXED=true`（run s23a-agent-45836） |
 | BUG-10 SPA | `03-testing/dev_probe_mcp_spa.log` | `/mcp/servers` 200 text/html；`BUG10_FIXED=true` |
 | BUG-09 白名单 | `03-testing/dev_probe_upload_whitelist.log` | `.doc/.exe/.xls` 422；`.txt` 200；`BUG09_FIXED=true` |
-| 复现脚本 | `05-temp/s23a_probe_bug11_inapi.py` / `s23a_probe_bug10_mcp_spa.py` / `s23a_probe_bug09_upload.py` / `s23a_host_pseudoauth.py`（05-temp gitignore，不入 git） | 可复跑 |
+| 复现脚本 | `05-temp/s23a_probe_bug11_inapi.py` / `s23a_probe_bug11_agent_runtime.py` / `s23a_probe_bug10_mcp_spa.py` / `s23a_probe_bug09_upload.py` / `s23a_host_pseudoauth.py`（05-temp gitignore，不入 git） | 可复跑 |
 
-## 六、已知问题 / 环境态（非本卡范围）
+## 七、已知问题 / 环境态（非本卡范围）
 - **OBS-02（环境态）**：真实 LLM 端点 `34.121.9.233:4000` 当前 key 持续 401（S20 时同 key 宿主直连可拿 200，现已恶化为全 401，疑似 key 轮换/失效或端点侧 LB 后 worker 全部未配 `--api-key`）。**需用户在端点侧核查 key 是否仍有效**。本卡用伪鉴权服务验证「凭据确实发出」，不依赖该端点；端点 key 恢复后，绑定带 key 真实 LLM 的 agent 对话即可 200。
 - 真实 embedding 端点（34.64.61.208:4000/v1, gte-qwen2, dim=3584）无鉴权要求，S21 已验证可达（不受 BUG-11 影响）。
 
-## 七、部署
-- `deploy/docker-compose.yml`：api/bff/webconsole 镜像 tag 升至 `:s23`。
-- 重建并重启：`docker compose up -d --build api bff webconsole`（本次 s23 镜像已由 S23a run 构建；运行容器已确认含 `get_endpoint_internal` / `_check_upload_ext` / 收窄后 nginx 正则）。
-- 验证：`docker compose ps` 7 容器 healthy；`joker-webconsole` 内 `location ~ ^/(api|v1)(/|$)`；`joker-api` 内 `/app/joker_shared/llm/service.py` 含 internal 方法、`/app/api/app/routers/storage.py` 含 `_check_upload_ext`。
-- 台账：本次为已有服务（joker-* 容器）版本升级，无新增组件/端口/项目关系变更，`SERVER_REGISTRY.md` 无需新增行（joker 服务此前已登记）。
+## 八、部署
+- `deploy/docker-compose.yml`：api/bff/webconsole 镜像 tag 升至 `:s23`；**BFF 补 `FERNET_KEY`**（BUG-12）。
+- 重建并重启：s23 镜像（api/bff/webconsole）+ 重建 `joker-bff` 容器加载新 env（`docker compose up -d bff`）。
+- 验证：`docker compose ps` 7 容器 healthy；`joker-webconsole` 内 `location ~ ^/(api|v1)(/|$)`；`joker-api` 内 `/app/joker_shared/llm/service.py` 含 internal 方法、`/app/api/app/routers/storage.py` 含 `_check_upload_ext`；`joker-bff` 与 `joker-api` 的 `FERNET_KEY` sha256 前 16 位一致（`3e317dedad78d202`）。
+- 台账：本次为已有服务（joker-* 容器）版本升级 + BFF 补 env，无新增组件/端口/项目关系变更，`SERVER_REGISTRY.md` 无需新增行（joker 服务此前已登记）。
 
-## 八、QA_STANDARD 合规自检
-- §一 开发自测：3 个修改接口（LLM 探测 / 存储上传 / MCP SPA 入口）均真实 HTTP 调用一次并通过，证据落盘 `dev_probe_*.log` ✓
-- §一 外部依赖：LLM 节点用「伪鉴权本地服务」（强制 Authorization）验证凭据发出，非 mock ✓
-- 明文/密文 key 未进任何日志/响应/git 文件（`dev_probe_bug11` 仅记 `auth_prefix=Bearers23afakekey` 前 14 字符，为测试用假 key）✓
+## 九、QA_STANDARD 合规自检
+- §一 开发自测：修改接口（LLM 探测 / agent 运行时对话 / 存储上传 / MCP SPA 入口）均真实 HTTP 调用一次并通过，证据落盘 `dev_probe_*.log`（4 份）✓
+- §一 外部依赖：LLM 节点用「伪鉴权本地服务」（强制 Authorization）验证凭据发出，非 mock ✓（探测 + agent 运行时两条链路均验证）
+- 明文/密文 key 未进任何日志/响应/git 文件（`dev_probe_bug11*` 仅记 `auth_prefix` 前 14 字符，为测试用假 key `s23afakekey123456`）✓
 - 真实端点 401 标注为环境态 OBS-02，不据此下「带 key 真实 LLM 对话 200」结论 ✓

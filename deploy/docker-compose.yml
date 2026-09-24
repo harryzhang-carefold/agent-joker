@@ -60,6 +60,11 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_HMAC_SECRET: ${INTERNAL_HMAC_SECRET}
+      # BUG-11 修复（S23）：BFF 内进程运行 agent 对话（openai_compat → AgentService.chat →
+      # runtime._build_llm 解密 LLM 节点 api_key_enc）。必须与 API 共用同一 FERNET_KEY，
+      # 否则 BFF 的 get_fernet() 会随机生成 key → decrypt_secret 失败 → api_key=*** →
+      # ChatOpenAI("not-needed") → 带 key 真实 LLM 的 agent 对话必然 401。
+      FERNET_KEY: ${FERNET_KEY:-}
       BFF_PLATFORM_API_BASE: http://api:8001
       DB_DSN: postgresql+asyncpg://joker:${PG_PASSWORD:-joker}@pg:5432/joker
       REDIS_URL: redis://redis:6379/0
