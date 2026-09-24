@@ -303,7 +303,7 @@ S16 交付后用户实测发现 **BUG-07（P1）** 三症状：
 **交付判定：✅ BUG-07（P1）三症状全部闭环，经 S18 独立回归 41/41 PASS + S19 独立抽验 11/11 PASS；无回归；无 P0/P1/P2 未修复缺陷；无阻塞。**
 
 - 至此累计 7 个缺陷（6 BASE + BUG-07）全部修复并独立复验闭环。
-- 代码已提交（commit `ee91441`，含 S17 修复 + S18/S19 报告）；**推送远端 origin 受阻**：本环境出口对 github.com:443 持续 TCP RST（curl 可达国内站点、git 重试 6 次+HTTP/1.1 均失败，2026-09-24 S19 时点）——非代码/凭据问题，网络恢复后 `git push origin main` 即可（凭据已配 credential store）。
+- 代码已提交（commit `ee91441`，含 S17 修复 + S18/S19 报告）；**推送远端 origin 受阻**：本环境出口对 github.com:443 持续 TCP RST（curl 可达国内站点、git 重试 6 次+HTTP/1.1 均失败，2026-09-24 S19 时点）——非代码/凭据问题。**[2026-09-24 主agent补充] 出口已放行，已代执行 `git push origin main`：dc3a847..d8e3ca1 推送成功，远端 HEAD=d8e3ca1（fetch 后 0/0 已核验），远端同步闭环。**
 - 部署态（S19 核验）：`agent-joker-api:s17` / `agent-joker-bff:s17` / `agent-joker-webconsole:s17` + pg/redis 全 healthy；启动 `cd deploy && docker compose up -d --build`（.env 已含 `SEED_PLATFORM_ADMIN_USERNAME=platform`）。
 
 > 褚岩（项目经理）用户实测修复轮终审签字：2026-09-24。独立抽验证据 `05-temp/results_s19.json` / `results_s19b.json`；上游报告 `02-development/DEV_REPORT_S17.md`、`03-testing/TEST_REPORT_S18.md`。
