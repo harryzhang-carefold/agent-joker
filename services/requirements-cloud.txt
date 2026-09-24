@@ -1,0 +1,5 @@
+# 云存储后端 SDK（可选，STORE-02：GCS/OSS 切换时安装）
+# 本地 compose 自测（STORAGE_BACKEND=local）不需要；
+# 切 gcs/oss 后端时在镜像构建阶段追加：pip install -r requirements-cloud.txt
+google-cloud-storage>=2.16
+oss2>=2.18

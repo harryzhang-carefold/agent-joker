@@ -1,0 +1,35 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+
+WORKDIR /app
+
+# shared 库 + api 服务（S02：storage 实装；bff 最小集独立镜像）
+COPY services/requirements.txt /app/requirements.txt
+# 云存储 SDK（STORE-02：GCS/OSS 实现存在，后端切换配置生效；
+# 无云账号时运行期返回明确配置错误而非崩溃）
+COPY services/requirements-cloud.txt /app/requirements-cloud.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt -r /app/requirements-cloud.txt
+
+COPY services/shared/joker_shared /app/joker_shared
+COPY services/api /app/api
+# S07：mock 资产（DECISION-008 协议可运行样例，--profile mocks 启动复用本镜像）
+COPY services/mocks /app/mocks
+COPY deploy/mock_tools_default.json /app/mocks/tools_default.json
+# 工作目录：/app/api（app 包所在）；PYTHONPATH 含 /app（joker_shared 可导入）
+ENV PYTHONPATH=/app:/app/api
+WORKDIR /app/api
+
+# 非 root 运行（uid 1000）；entrypoint 先以 root 修数据卷属主再 gosu 降级
+RUN useradd -m -u 1000 joker
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+COPY deploy/entrypoint-api.sh /entrypoint-api.sh
+RUN chmod +x /entrypoint-api.sh
+USER root
+
+EXPOSE 8001
+
+CMD ["/entrypoint-api.sh"]

@@ -1,0 +1,25 @@
+# 敏感/本地
+.env
+deploy/.env
+*.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# 日志/缓存
+*.log
+.DS_Store
+.pytest_cache/
+
+# 前端
+node_modules/
+frontend/dist/
+
+# 临时/测试产物
+05-temp/
+03-testing/__pycache__/
+*.tar

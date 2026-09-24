@@ -1,0 +1,739 @@
+{
+  "run": "s12run1790163089",
+  "pass": 109,
+  "fail": 35,
+  "skip": 2,
+  "elapsed_s": 258.1,
+  "results": [
+    {
+      "name": "BFF-02 限流配置运行时调整即时生效（user_qps 10→1000，读回验证）",
+      "pass": true,
+      "evidence": "set=200 readback=1000"
+    },
+    {
+      "name": "BASE-01 创建用户（用户名/密码/租户/角色）",
+      "pass": true,
+      "evidence": "code=201 uid=c43fa0b0"
+    },
+    {
+      "name": "BASE-01 创建后出现在用户列表",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "BASE-01 禁用用户",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "BASE-01 禁用后无法登录",
+      "pass": true,
+      "evidence": "disabled_login=rejected"
+    },
+    {
+      "name": "BASE-01 重置密码（管理员）",
+      "pass": true,
+      "evidence": "code=200 resp={'ok': True}"
+    },
+    {
+      "name": "BASE-01 重新启用 + 新密码可登录",
+      "pass": true,
+      "evidence": "reenabled=200 login=ok"
+    },
+    {
+      "name": "BASE-02 创建角色并关联权限点",
+      "pass": true,
+      "evidence": "code=201 scopes=None"
+    },
+    {
+      "name": "BASE-02 查看角色权限清单",
+      "pass": false,
+      "evidence": "scopes=[]"
+    },
+    {
+      "name": "BASE-02 改角色权限即时生效（权限随之变化）",
+      "pass": false,
+      "evidence": "new_scopes=[]"
+    },
+    {
+      "name": "BASE-02 用户可分配/变更角色",
+      "pass": false,
+      "evidence": "roles=None"
+    },
+    {
+      "name": "BASE-02 删除角色",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "BASE-03 定义权限点（编码+描述）并关联角色",
+      "pass": true,
+      "evidence": "code=201 scope=s12scope781826"
+    },
+    {
+      "name": "BASE-03 用户有效权限=角色权限并集（两角色）",
+      "pass": false,
+      "evidence": "roles=[]"
+    },
+    {
+      "name": "BASE-04 密码错误拒绝且不签发 token",
+      "pass": true,
+      "evidence": "code=401"
+    },
+    {
+      "name": "BASE-04 token 携带 tenant_id/user_id/scopes",
+      "pass": true,
+      "evidence": "claims=['exp', 'iat', 'jti', 'scopes', 'sub', 'tenant_id', 'type', 'user_id']"
+    },
+    {
+      "name": "BASE-05 登出后原 access token 立即失效（jti 黑名单）",
+      "pass": false,
+      "evidence": "logout=200 refresh_revoked=1 post_logout_api=200"
+    },
+    {
+      "name": "BASE-05 登出后 refresh 吊销（401）",
+      "pass": true,
+      "evidence": "refresh_after_logout=401"
+    },
+    {
+      "name": "BASE-05 登出操作记录到接口操作日志",
+      "pass": false,
+      "evidence": "audit_logout_found=False"
+    },
+    {
+      "name": "BASE-06 业务接口调用后操作日志可查（操作者/时间/接口/状态码）",
+      "pass": true,
+      "evidence": "count=144 sample={'method': 'GET', 'path': '/api/users', 'status_code': 200}"
+    },
+    {
+      "name": "BASE-06 日志按接口筛选",
+      "pass": true,
+      "evidence": "paths=['/api/rag/kbs', '/api/rag/kbs', '/api/rag/search']"
+    },
+    {
+      "name": "BASE-06 日志按时间范围筛选",
+      "pass": false,
+      "evidence": "old_range_total=None"
+    },
+    {
+      "name": "BASE-06 敏感字段脱敏（登录日志无明文密码）",
+      "pass": true,
+      "evidence": "pw_in_log=False"
+    },
+    {
+      "name": "BASE-07 跨租户直接猜 ID 无法访问（404 不泄露存在性）",
+      "pass": true,
+      "evidence": "code=404"
+    },
+    {
+      "name": "BASE-08 前端 SPA index.html 可加载",
+      "pass": true,
+      "evidence": "code=200 bytes=735"
+    },
+    {
+      "name": "BASE-08 前端路由 SPA fallback 可达（Vue Router history 模式，非 404）",
+      "pass": true,
+      "evidence": "reachable=8/9 (源:单 index.js history 路由)"
+    },
+    {
+      "name": "BASE-08 9 模块数据端点经 token 均可访问（无直连 DB）",
+      "pass": true,
+      "evidence": "reachable=9/9"
+    },
+    {
+      "name": "BASE-09 凭 refresh 令牌换取新 access token（无需重登）",
+      "pass": false,
+      "evidence": "refresh=401 new_token=no"
+    },
+    {
+      "name": "BASE-09 旧 refresh 重放被拒（轮换+整族吊销）",
+      "pass": true,
+      "evidence": "replay=401 b'{\"detail\": \"missing access token\"}'"
+    },
+    {
+      "name": "BASE-09 篡改 token 被拒（401）",
+      "pass": true,
+      "evidence": "tampered=401"
+    },
+    {
+      "name": "BASE-09 BFF 校验 token 并提取三要素（无效 token 401）",
+      "pass": true,
+      "evidence": "bad_token_bff=401"
+    },
+    {
+      "name": "STORE-01 本地目录后端配置生效（STORAGE_LOCAL_PATH=/data/storage）",
+      "pass": true,
+      "evidence": "local={'name': 'local', 'configured': True, 'root': '/data/storage'}"
+    },
+    {
+      "name": "STORE-02 GCS/OSS 云后端已实现（凭证在 .env，无账号时不崩溃）",
+      "pass": true,
+      "evidence": "backends=[None, 'local', 'gcs', 'oss'] gcs_cfg=False"
+    },
+    {
+      "name": "STORE-02/03 后端配置化切换（STORAGE_BACKEND env，保留原后端访问不迁移）",
+      "pass": true,
+      "evidence": "docker-compose.yml env STORAGE_BACKEND=local/gcs/oss；storage_files.backend 行内分派（代码核对）"
+    },
+    {
+      "name": "STORE-01 上传文件实际落盘到配置目录（backend=local）",
+      "pass": true,
+      "evidence": "code=200 backend=local size=15"
+    },
+    {
+      "name": "STORE-04 按文件名访问文件（本租户得内容，不感知物理路径）",
+      "pass": true,
+      "evidence": "code=200 content=b'hello s12 store'"
+    },
+    {
+      "name": "STORE-04 文件不存在→404",
+      "pass": true,
+      "evidence": "code=404"
+    },
+    {
+      "name": "STORE-04 跨租户访问→404（不泄露）",
+      "pass": true,
+      "evidence": "code=404"
+    },
+    {
+      "name": "STORE-05 上传记录可查（文件名/上传者/来源/时间/大小）",
+      "pass": true,
+      "evidence": "count=1 rec0={'file_name': 's12_store_s12run1790163089.txt', 'source': 'api', 'uploader_user_id': '00000000-0000-0000-0000-000000000031'}"
+    },
+    {
+      "name": "STORE-05 上传记录按时间/来源筛选",
+      "pass": false,
+      "evidence": "old_range=None"
+    },
+    {
+      "name": "STORE-06/07 平台 MCP 内置 server（三工具 upload_doc/query_doc/rag_search）在工具列表",
+      "pass": true,
+      "evidence": "platform=joker-platform"
+    },
+    {
+      "name": "STORE-06/07 upload_doc/query_doc 平台内置工具可见",
+      "pass": true,
+      "evidence": "tools=['query_doc', 'rag_search', 'upload_doc']"
+    },
+    {
+      "name": "STORE-06/07 BFF /mcp 端点 tools/list 暴露三工具（MCP SDK 可对接）",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "LLM-01 新增 LLM endpoint",
+      "pass": true,
+      "evidence": "code=201"
+    },
+    {
+      "name": "LLM-01 查询 endpoint 列表（agent 勾选来源）",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "LLM-01 修改 endpoint",
+      "pass": false,
+      "evidence": "code=400"
+    },
+    {
+      "name": "LLM-01 连通性/调用测试（返回模型应答）",
+      "pass": true,
+      "evidence": "ok=True latency=7"
+    },
+    {
+      "name": "LLM-01 key 脱敏（响应无明文 key，仅 api_key_set 布尔）",
+      "pass": true,
+      "evidence": "api_key_set=True"
+    },
+    {
+      "name": "LLM-02 新增 embedding 模型（名称/endpoint/维度）",
+      "pass": true,
+      "evidence": "code=201"
+    },
+    {
+      "name": "LLM-02 查询 embedding 列表（建库候选来源）",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "LLM-02 本地 fallback embedding 确定性（同文本同向量，维度一致）",
+      "pass": true,
+      "evidence": "dim=256 det=True"
+    },
+    {
+      "name": "LLM-03 新增 reranker 模型",
+      "pass": true,
+      "evidence": "code=201"
+    },
+    {
+      "name": "LLM-03 查询 reranker 列表（检索候选来源）",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "LLM-03 删除 reranker",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "RAG-01 创建知识库（名称/描述/embedding/库级 tag）",
+      "pass": true,
+      "evidence": "code=201 dim=256 vec=rag_chunks_vec_cca4f1628c374ed090b6114ca tag=official"
+    },
+    {
+      "name": "RAG-01 知识库出现在列表（含文档数/配置摘要）",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "D-C 每库独立向量表（rag_chunks_vec_<kb_id>，两库不同，维度=该库模型维度）",
+      "pass": true,
+      "evidence": "kb1=rag_chunks_vec_cca4f1628c374ed090b6114caa82df kb2=rag_chunks_vec_c322e18528fb4ee1a8ffc09ecb5fa5"
+    },
+    {
+      "name": "RAG-02 六种类型文档（txt/word/excel/pdf/png/jpg）均可上传",
+      "pass": false,
+      "evidence": "uploaded=0/6"
+    },
+    {
+      "name": "RAG-02 非支持类型（.exe）拒绝 422",
+      "pass": true,
+      "evidence": "code=422 {'detail': 'unsupported file type: .s12run17901630"
+    },
+    {
+      "name": "RAG-02 .doc 旧格式拒绝 422（提示转 .docx）",
+      "pass": true,
+      "evidence": "code=422 {'detail': 'unsupported file type: .s12run17901630"
+    },
+    {
+      "name": "RAG-02 上传调用存储模块 API（记录来源=kb）",
+      "pass": false,
+      "evidence": "kb_records=0"
+    },
+    {
+      "name": "RAG-02 上传后进入解析流水线（uploaded→…→ready）并产生 chunk",
+      "pass": false,
+      "evidence": "status=None chunks=None parse=None"
+    },
+    {
+      "name": "RAG-04 定长策略切分（chunk_size 可配→多 chunk）",
+      "pass": false,
+      "evidence": "chunks=None"
+    },
+    {
+      "name": "RAG-04 父子策略切分（父块+子块两级，parent_id 引用）",
+      "pass": false,
+      "evidence": "chunks=None"
+    },
+    {
+      "name": "RAG-04 语义策略切分",
+      "pass": false,
+      "evidence": "chunks=None"
+    },
+    {
+      "name": "RAG-05 原文档查看（二进制可读）",
+      "pass": false,
+      "evidence": "code=500 bytes=21"
+    },
+    {
+      "name": "RAG-05 chunk 列表视图（顺序+内容+位置）",
+      "pass": false,
+      "evidence": "chunks=0 indices=[]"
+    },
+    {
+      "name": "RAG-06 知识库绑定 embedding 模型（维度快照固化）",
+      "pass": true,
+      "evidence": "kb_dim=256 model_dim=256"
+    },
+    {
+      "name": "RAG-07 不配置 rerank 检索正常（纯向量+阈值）",
+      "pass": false,
+      "evidence": "hits=0 reranked=False"
+    },
+    {
+      "name": "RAG-07 配置 reranker 检索正常（端点不可用降级纯向量不崩溃）",
+      "pass": false,
+      "evidence": "hits=0 reranked=False"
+    },
+    {
+      "name": "RAG-08 设置 topK=N 最多返回 N 条",
+      "pass": true,
+      "evidence": "top_k=2 got=0"
+    },
+    {
+      "name": "RAG-08 阈值调高至 0.99 返回 0 条",
+      "pass": true,
+      "evidence": "got=0"
+    },
+    {
+      "name": "RAG-08 单次检索级 topK 覆盖（未传回落库默认）",
+      "pass": true,
+      "evidence": "override_top_k=1"
+    },
+    {
+      "name": "RAG-09 检索结果带 chunk 索引+文档+位置（反向定位）",
+      "pass": false,
+      "evidence": "hit0_pos=None"
+    },
+    {
+      "name": "RAG-10 知识库检索 MCP 工具可调用（返回 chunk+位置，供引用）",
+      "pass": false,
+      "evidence": "code=200"
+    },
+    {
+      "name": "D-A 文档 tag=official（或库级 official）→ is_official=true",
+      "pass": false,
+      "evidence": "official=0/0"
+    },
+    {
+      "name": "D-A 库级 NULL 判定",
+      "pass": null,
+      "evidence": "SKIP: kb2 doc upload failed"
+    },
+    {
+      "name": "MCP-01 URL 注册 MCP server（注册即同步）",
+      "pass": true,
+      "evidence": "code=201 status=online tools=2"
+    },
+    {
+      "name": "MCP-01 可注册多个 server（各自独立管理）",
+      "pass": true,
+      "evidence": "my_servers=2"
+    },
+    {
+      "name": "MCP-01 编辑已注册 server",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "MCP-02 server 工具列表（名称/描述/入参 schema，来自远端 tools/list）",
+      "pass": true,
+      "evidence": "tools=['calc', 'echo']"
+    },
+    {
+      "name": "MCP-02 工具禁用（agent 侧不可调用）",
+      "pass": true,
+      "evidence": "enabled=False"
+    },
+    {
+      "name": "MCP-02 工具启用恢复",
+      "pass": true,
+      "evidence": "enabled=True"
+    },
+    {
+      "name": "MCP-02 工具删除（平台侧移除，不删远端）",
+      "pass": true,
+      "evidence": "calc_gone"
+    },
+    {
+      "name": "MCP-03 查询 server 关联调用方（删除/禁用前提示数据源）",
+      "pass": false,
+      "evidence": "total=None"
+    },
+    {
+      "name": "MCP-03 无关联调用方可直接删除",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "SKILL-01 手动创建 skill（名称+内容）",
+      "pass": true,
+      "evidence": "code=201"
+    },
+    {
+      "name": "SKILL-01 skill 可编辑",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "SKILL-01 上传 skill 文件（.md）",
+      "pass": false,
+      "evidence": "code=422"
+    },
+    {
+      "name": "SKILL-01 skill 列表（名称/描述/状态）",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "SKILL-02 skill 元数据落库 + 文件走存储模块（source=skill）",
+      "pass": false,
+      "evidence": "files=[]"
+    },
+    {
+      "name": "SKILL-02 上传记录来源=skill 可查（元数据与文件分离一致）",
+      "pass": true,
+      "evidence": "skill_records=17"
+    },
+    {
+      "name": "SKILL-02 删除 skill（元数据+文件清理策略）",
+      "pass": true,
+      "evidence": "code=200 deleted=[]"
+    },
+    {
+      "name": "AGENT-01 创建 agent（简易类型）",
+      "pass": true,
+      "evidence": "code=201 err=b'{\"id\":\"9dc1f223-9e75-4ad7-952d-df22d61c5f83\",\"tenant_id\":\"00000000-0000-0000-0"
+    },
+    {
+      "name": "AGENT-01 agent 出现在列表",
+      "pass": true,
+      "evidence": "found"
+    },
+    {
+      "name": "AGENT-02 agent 类型可选简易（本地 langchain 执行）",
+      "pass": true,
+      "evidence": "type=simple"
+    },
+    {
+      "name": "AGENT-03 四要素回显正确（LLM/KB/MCP工具/skills 从已存在列表勾选）",
+      "pass": true,
+      "evidence": "llm=['e8dbe04f-9ab8-4746-b967-21738ca33f89'] kb=['cca4f162'] tools=3"
+    },
+    {
+      "name": "AGENT-03 非法 tool id 返回 422（非 500，S11 已修）",
+      "pass": true,
+      "evidence": "code=422"
+    },
+    {
+      "name": "AGENT-04 对 agent 发起对话得回复（简易闭环）",
+      "pass": true,
+      "evidence": "reply=根据知识库中的官方退款政策：订单签收后 7 天内可无理由退款，超过 7 天需联系客服处理，特殊商品除"
+    },
+    {
+      "name": "AGENT-04 会话列表（agent/标题/时间/消息数）",
+      "pass": false,
+      "evidence": "sessions=1"
+    },
+    {
+      "name": "AGENT-04 对话详情展示完整消息流（user/assistant）",
+      "pass": true,
+      "evidence": "msgs=2 roles=['user', 'assistant']"
+    },
+    {
+      "name": "AGENT-04 会话新建",
+      "pass": false,
+      "evidence": "code=200"
+    },
+    {
+      "name": "AGENT-04 会话重命名",
+      "pass": false,
+      "evidence": "code=500"
+    },
+    {
+      "name": "AGENT-04 会话删除",
+      "pass": false,
+      "evidence": "code=500"
+    },
+    {
+      "name": "AGENT-05 official 文档命中→回复末尾自动附 RAG 来源",
+      "pass": false,
+      "evidence": "forced_official=False cites=0"
+    },
+    {
+      "name": "AGENT-05 引用可链接原文位置",
+      "pass": null,
+      "evidence": "SKIP: no citations"
+    },
+    {
+      "name": "AGENT-05 非 official 且用户未要求→不附来源",
+      "pass": true,
+      "evidence": "cites=0"
+    },
+    {
+      "name": "AGENT-06 简易 agent 对话产生文件入存储模块（source=agent）",
+      "pass": true,
+      "evidence": "files=[{'file_id': '55a0bdce-0df4-4a43-ac63-dd4cf6965408', 'direction': 'in', 'file_name': 'agent_file_s12run1790163089.txt'}]"
+    },
+    {
+      "name": "AGENT-06 上传记录来源=agent 可查",
+      "pass": true,
+      "evidence": "agent_records=5"
+    },
+    {
+      "name": "AGENT-07 会话内多轮上下文连贯（redis 短期记忆）",
+      "pass": false,
+      "evidence": "reply2=好的，我已经收到你的消息，有什么可以帮你的？"
+    },
+    {
+      "name": "AGENT-07 关闭会话触发记忆沉淀（LLM 提炼长期记忆）",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "AGENT-07 长期记忆持久化（PG agent_memories）",
+      "pass": true,
+      "evidence": "memories=1"
+    },
+    {
+      "name": "AGENT-08 obsidian 知识沉淀（vault 笔记 + 索引，可读 markdown）",
+      "pass": true,
+      "evidence": "notes=1 path=acme/s12-agent-s12run1790163089/2026-09/会话-0ee10828-共-2-条消息-1135-1bdfba.md"
+    },
+    {
+      "name": "AGENT-02/09 创建第三方 agent（URL 创建/维护/交互）",
+      "pass": true,
+      "evidence": "code=201 err=b'{\"id\":\"0b22d0df-dc71-4224-8bf1-f4d7c62fbc18\",\"tenant_id\":\""
+    },
+    {
+      "name": "AGENT-09 第三方 agent 记忆由提供方实现（平台不注入/不存其记忆）",
+      "pass": true,
+      "evidence": "DECISION-008 协议；平台侧不注入记忆，trace 记录交互"
+    },
+    {
+      "name": "AGENT-10 第三方 agent 对话闭环（mock-tp：tool_calls 拦截→回传→最终答案）",
+      "pass": true,
+      "evidence": "reply=TP-FINAL: tool_result={\"ok\": false, \"tool_name\": \"rag_search\", \"error\""
+    },
+    {
+      "name": "AGENT-11 第三方 RAG 引用（平台提供检索结果+引用原文档信息）",
+      "pass": false,
+      "evidence": "rag_hits=0 cites=0"
+    },
+    {
+      "name": "AGENT-10 第三方 agent 不配置工具对话正常（不报工具缺失）",
+      "pass": true,
+      "evidence": "reply=TP-NO-TOOL: 你好，我是 mock 第三方 agent。"
+    },
+    {
+      "name": "BFF-01 无 token 请求→401（受保护接口统一拦截）",
+      "pass": true,
+      "evidence": "code=401"
+    },
+    {
+      "name": "BFF-01 无效 token→401",
+      "pass": true,
+      "evidence": "code=401"
+    },
+    {
+      "name": "BFF-01 有效 token 通过鉴权进入后续流程",
+      "pass": true,
+      "evidence": "code=200"
+    },
+    {
+      "name": "BFF-01 BFF 为统一入口（业务服务不重复实现 token 校验）",
+      "pass": true,
+      "evidence": "service=bffgateway phase=S08-bff"
+    },
+    {
+      "name": "BFF-03 配置化路由表（routes.yml，新增端点不改 BFF 代码）",
+      "pass": true,
+      "evidence": "routes=2 source=/app/bff/routes.yml"
+    },
+    {
+      "name": "BFF-03 未知路径→404（清晰错误）",
+      "pass": true,
+      "evidence": "code=404"
+    },
+    {
+      "name": "BFF-04 标准 OpenAI SDK 直连 /v1 块式（字段符合 OpenAI 格式）",
+      "pass": true,
+      "evidence": "object=chat.completion model=s12-agent-s12run1790163089"
+    },
+    {
+      "name": "BFF-04 SSE 流式（chat.completion.chunk + [DONE]）",
+      "pass": true,
+      "evidence": "chunks=13"
+    },
+    {
+      "name": "BFF-05 跨租户访问 agent→404（tenant 提取自 token，不泄露）",
+      "pass": true,
+      "evidence": "code=404"
+    },
+    {
+      "name": "BFF-06/07 简易 agent 工具调用 100% 经 ToolInterceptor（LangChain 回调拦截）",
+      "pass": true,
+      "evidence": "tool_calls=[{\"name\": \"echo\", \"ok\": true, \"args\": {\"x\": \"s12-echo-s12run1790163089\"}}]"
+    },
+    {
+      "name": "BFF-09 工具结果回传进入最终回复（代理执行返回）",
+      "pass": true,
+      "evidence": "reply=工具执行完成，回显结果如下：{\"result\": \"{\\\"name\\\": \\\"echo\\\", \\\"arguments\\\""
+    },
+    {
+      "name": "BFF-08 第三方 agent HTTP 响应 tool_call 拦截（拦截→代理执行→回传闭环）",
+      "pass": true,
+      "evidence": "reply=TP-FINAL: tool_result={\"ok\": false, \"tool_name\": \"rag_search"
+    },
+    {
+      "name": "TRACE-01 会话 trace 可查（simple + third_party）",
+      "pass": true,
+      "evidence": "simple_events=5 tp_events=3"
+    },
+    {
+      "name": "TRACE-01 全链路事件（system/message/rag/tool_call + 交互内容）",
+      "pass": true,
+      "evidence": "chain=['system', 'rag', 'message', 'message', 'system']"
+    },
+    {
+      "name": "D-B 内部 RAG 直调产生 rag 事件（非 tool_call，保留 rag 留痕）",
+      "pass": true,
+      "evidence": "rag=1 tool_call=0"
+    },
+    {
+      "name": "TRACE-01 trace 含 token 耗费",
+      "pass": true,
+      "evidence": "token_events=1 sample={'total_tokens': 70, 'prompt_tokens': 40, 'completion_tokens': 30}"
+    },
+    {
+      "name": "TRACE-01 trace 含时间点（时间戳）",
+      "pass": true,
+      "evidence": "ts=2026-09-23T11:35:29.422429+00:00"
+    },
+    {
+      "name": "TRACE-01 第三方会话事件链含 tool_call（拦截留痕）",
+      "pass": true,
+      "evidence": "chain=['system', 'rag', 'tool_call']"
+    },
+    {
+      "name": "TRACE-01 文件事件留痕（上传/生成文件）",
+      "pass": true,
+      "evidence": "file_events=5"
+    },
+    {
+      "name": "TRACE-02 事件多维检索（event_type）",
+      "pass": true,
+      "evidence": "total=28"
+    },
+    {
+      "name": "TRACE-02 按会话检索 trace",
+      "pass": false,
+      "evidence": "total=0"
+    },
+    {
+      "name": "TRACE-02 关键词全文检索（payload tsvector）",
+      "pass": true,
+      "evidence": "keyword_total=0"
+    },
+    {
+      "name": "TRACE-02 检索受租户隔离（globex 不含 acme 会话）",
+      "pass": true,
+      "evidence": "globex_sessions=0"
+    },
+    {
+      "name": "BFF-02 限流配置运行时调整（user_qps→10，读回验证即时生效）",
+      "pass": true,
+      "evidence": "readback=10"
+    },
+    {
+      "name": "限流 单用户超 QPS→429（用户维度）",
+      "pass": false,
+      "evidence": "admin_codes=[200, 200, 200]"
+    },
+    {
+      "name": "限流 其他租户用户不受影响→200（独立计数）",
+      "pass": true,
+      "evidence": "globex=200"
+    },
+    {
+      "name": "限流 同租户另一用户不受影响（用户维度隔离）",
+      "pass": true,
+      "evidence": "acme_admin=200"
+    },
+    {
+      "name": "限流 末尾 reset 验证（user_qps 复位 1000，防跨轮泄漏）",
+      "pass": true,
+      "evidence": "final=1000"
+    }
+  ]
+}

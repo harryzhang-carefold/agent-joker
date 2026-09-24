@@ -1,0 +1,1 @@
+本文档由 02-development/ARCHITECTURE.md + 02-development/DB_DESIGN.md 承接，本文件作废。

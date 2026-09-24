@@ -1,0 +1,27 @@
+{
+  "name": "agent-joker-webconsole",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "agent-joker WebConsole 管理台（S10：Vue3 + Vite + Element Plus + Pinia，9 模块 + 对话 SSE + 切分对比 + 多租户）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.7",
+    "element-plus": "^2.9.0",
+    "pinia": "^3.0.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

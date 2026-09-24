@@ -1,0 +1,29 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+# 说明：不固定 PIP_INDEX_URL（S11 集成时如需换源统一改这里）
+
+WORKDIR /app
+
+# shared 库 + bff 服务（S02 最小集：PlatformMCPServer /mcp）
+COPY services/requirements.txt /app/requirements.txt
+# 云存储 SDK 一并安装（STORE-02：GCS/OSS 实现存在，后端切换配置生效；
+# 无云账号时运行期返回明确配置错误而非崩溃）
+COPY services/requirements-cloud.txt /app/requirements-cloud.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt -r /app/requirements-cloud.txt
+
+COPY services/shared/joker_shared /app/joker_shared
+COPY services/bff /app/bff
+# 工作目录：/app/bff（app 包所在）；PYTHONPATH 含 /app（joker_shared 可导入）
+ENV PYTHONPATH=/app:/app/bff
+WORKDIR /app/bff
+
+# 非 root 运行（uid 1000）
+RUN useradd -m -u 1000 joker
+USER joker
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

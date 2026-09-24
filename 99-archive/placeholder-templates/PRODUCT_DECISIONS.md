@@ -1,0 +1,1 @@
+本文档由 00-management/DECISIONS.md（决策记录）承接，本文件作废。

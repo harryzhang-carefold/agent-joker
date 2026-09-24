@@ -1,0 +1,289 @@
+{
+ "run": "s15run1790182209",
+ "base": "http://host.docker.internal:8080",
+ "elapsed_s": 59.3,
+ "passed": 39,
+ "total": 40,
+ "results": [
+  {
+   "name": "A1 BUG-01 建角色 201",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=201 code=agents:manage"
+  },
+  {
+   "name": "A2 BUG-01 角色 scope 读回非空",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "[\"agents:manage\"]"
+  },
+  {
+   "name": "A3 BUG-01 改角色权限读回 2 项",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "[\"agents:manage\", \"trace:read\"]"
+  },
+  {
+   "name": "A4 BUG-01 用户绑角色读回 roles",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "create=201 roles=[\"s15role1790183188\"]"
+  },
+  {
+   "name": "A5 BASE-03 用户有效权限=角色并集（两角色可读回）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "roles=[\"admin\", \"s15role1790183188\"]"
+  },
+  {
+   "name": "B1 BUG-02 logout 200 + refresh 吊销",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 body={\"ok\": true, \"refresh_revoked\": 1}"
+  },
+  {
+   "name": "B2 BUG-02 登出后原 access 立即 401",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=401 access token revoked (logged out)"
+  },
+  {
+   "name": "B3 BUG-02 登出后 refresh 重放 401",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=401"
+  },
+  {
+   "name": "C1 BUG-03 audit 时间筛选 200 total=0",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 total=0"
+  },
+  {
+   "name": "C2 BUG-03 upload-records 时间筛选 200",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 total=0"
+  },
+  {
+   "name": "C3 BUG-03 trace events 时间筛选 200",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 total=0"
+  },
+  {
+   "name": "C4 BUG-03 无效时间 → 400（非 500）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=400"
+  },
+  {
+   "name": "C5 BUG-03 带 offset 时间正常解析 200",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 total=0"
+  },
+  {
+   "name": "D1 BUG-04 建用户 201 + id",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=201 id=d7e27c22"
+  },
+  {
+   "name": "D2 BUG-04 仅 role_names 更新 200（不 422）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 {\"ok\": true}"
+  },
+  {
+   "name": "D3 BUG-04 GET user 读回 roles 字段",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "roles=[\"member\"]"
+  },
+  {
+   "name": "D4 BUG-04 改角色读回",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "roles=[\"admin\"]"
+  },
+  {
+   "name": "D5 BUG-04 空体仍 422（语义保持）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=422"
+  },
+  {
+   "name": "E1 BUG-05 干净刷新 200 + 新双令牌",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "E2 BUG-05 旧 refresh 重放 401（整族吊销）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=401"
+  },
+  {
+   "name": "E3 BUG-05 篡改 refresh 401",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=401"
+  },
+  {
+   "name": "F1 BUG-06 登出审计命中 /api/auth/logout",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "found=19"
+  },
+  {
+   "name": "F2 BUG-06 登出审计 tenant 非空",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "{\"id\": \"f3e5249e-f37a-4467-8a6c-df583f33dc25\", \"tenant_id\": \"00000000-0000-0000-0000-000000000002\", \"user_id\": \"00000000-0000-0000-0000-000000000031\", \"method\": \"POST\", \"path\": \"/api/auth/logout\", \"qu"
+  },
+  {
+   "name": "G1 TRACE-02 建会话并产生 trace（chat 200 + 公开 session_id）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 sid=e7dd3f24-135 reply=根据知识库中的官方退款政策：订单签收后 7 天内可无理由退款，超过 7 天需联系"
+  },
+  {
+   "name": "G2 TRACE-02 按会话检索命中（经 /trace/sessions 两跳）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "tsid=ac131b97-8a6 event_count=4"
+  },
+  {
+   "name": "G3 TRACE-02 会话事件链含 message/rag/system",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "events=4 event_types=['message', 'rag', 'system']"
+  },
+  {
+   "name": "H1 AGENT-07 turn1 200（同 session）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 same_sid=True"
+  },
+  {
+   "name": "H2 AGENT-07 turn2 200（同 session，复用上下文）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 same_sid=True"
+  },
+  {
+   "name": "H3 AGENT-07 多轮上下文管线（会话内 message 事件 >=2）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "msg_events=4 total_events=7"
+  },
+  {
+   "name": "H4 AGENT-07 多轮上下文（turn1 内容 ORD-99231 进入会话 trace）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "turn1_in_trace=True"
+  },
+  {
+   "name": "H5 AGENT-07 多轮真实召回（需真实 LLM；本环境 mock 固定应答+LLM-401 受限）",
+   "pass": false,
+   "env_limited": true,
+   "status": "SKIP",
+   "detail": "reply2=好的，我已经收到你的消息，有什么可以帮你的？ (环境受限：mock 固定应答，真实召回需 .env 真实端点恢复)"
+  },
+  {
+   "name": "I0 RAG 上传文档链路 201（fixture 落库）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=201 doc=991b40b5 fixture=yes"
+  },
+  {
+   "name": "I1 RAG 解析流水线 ready + chunk（上传→解析→切分链路通）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=ready chunks=2"
+  },
+  {
+   "name": "I2 RAG 检索 200（链路通；命中受 fallback 环境限制）",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200 total=0 (fallback ngram 中文余弦<0.3→0命中=环境产物；检索逻辑 S11/probe10 已证正确)"
+  },
+  {
+   "name": "J1 无回归 healthz",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "J2 无回归 scopes 列表",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "J3 无回归 rag kbs 列表",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "J4 无回归 agents 列表",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "J5 无回归 llm endpoints",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=200"
+  },
+  {
+   "name": "J6 无回归 跨租户登录 404",
+   "pass": true,
+   "env_limited": false,
+   "status": "PASS",
+   "detail": "status=404"
+  }
+ ]
+}

@@ -1,0 +1,214 @@
+# agent-joker — 容器集（api + bff + pg + redis + webconsole + mock*）
+# 链路：浏览器/SDK → webconsole(nginx:8080) → bff(8000) → api(8001) → pg/redis（ARCH §5.1/§5.2）。
+# bff = S08 统一网关（限流/JWT 鉴权/路由转发/OpenAI 兼容/ToolInterceptor/平台 MCP 对外）。
+# webconsole = S10 前端（nginx 托管 dist + 反代 /api /v1 /mcp → bff）。
+# 本地自测独立起 pg/redis（隔离、可复现，ARCH §5.4；不接共享 pg-unified）。
+#
+# 启动：cd deploy && cp .env.example .env（按提示填密钥） && docker compose up -d --build
+# 验证：curl http://localhost:8080/healthz（webconsole）；curl http://localhost:8000/healthz（bff）
+#       浏览器 http://localhost:8080 → 登录 → 9 模块页面
+
+name: agent-joker
+
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    container_name: joker-pg
+    environment:
+      POSTGRES_DB: joker
+      POSTGRES_USER: joker
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-joker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U joker -d joker"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1g
+    # 仅容器网络内可达（不发布宿主端口，避免与 pg-unified:5432 冲突）
+    # 如需宿主机调试：取消下行注释（端口 15432 避开共享 5432）
+    # ports:
+    #   - "127.0.0.1:15432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: joker-redis
+    # 自测环境关闭 AOF 持久化（仅缓存语义，ARCH §5.2）
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+
+  bff:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bff
+    image: agent-joker-bff:s14
+    container_name: joker-bff
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # bff（S08 统一网关）直连 pg（agent 解析 / trace 写点 / 限流配置）+ redis（限流计数 / 登出黑名单）。
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_HMAC_SECRET: ${INTERNAL_HMAC_SECRET}
+      BFF_PLATFORM_API_BASE: http://api:8001
+      DB_DSN: postgresql+asyncpg://joker:${PG_PASSWORD:-joker}@pg:5432/joker
+      REDIS_URL: redis://redis:6379/0
+      BFF_ROUTES_FILE: /app/bff/routes.yml
+      BFF_PROXY_TIMEOUT: ${BFF_PROXY_TIMEOUT:-120}
+      BFF_RL_CACHE_TTL: ${BFF_RL_CACHE_TTL:-10}
+      BFF_RATE_LIMIT_TENANT_QPS: ${BFF_RATE_LIMIT_TENANT_QPS:-50}
+      BFF_RATE_LIMIT_USER_QPS: ${BFF_RATE_LIMIT_USER_QPS:-10}
+      BFF_RATE_LIMIT_LOGIN_IP_PER_MIN: ${BFF_RATE_LIMIT_LOGIN_IP_PER_MIN:-5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Linux 下解析 host.docker.internal → 宿主（第三方 agent / mock LLM 等宿主发布端口经此可达）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"   # S08：BFF 统一网关 8000（nginx/S11 起对外 8080；自测直连 8000）
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 512m
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: agent-joker-api:s14
+    container_name: joker-api
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_DSN: postgresql+asyncpg://joker:${PG_PASSWORD:-joker}@pg:5432/joker
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_HMAC_SECRET: ${INTERNAL_HMAC_SECRET}
+      FERNET_KEY: ${FERNET_KEY:-}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      STORAGE_LOCAL_PATH: /data/storage
+      GCS_BUCKET: ${GCS_BUCKET:-}
+      GCS_CREDENTIALS_PATH: ${GCS_CREDENTIALS_PATH:-}
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-}
+      OSS_BUCKET: ${OSS_BUCKET:-}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-}
+      OBSIDIAN_VAULT_PATH: /data/obsidian-vault
+      TRACE_RETENTION_DAYS: ${TRACE_RETENTION_DAYS:-90}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-90}
+      RETENTION_CHECK_INTERVAL_HOURS: ${RETENTION_CHECK_INTERVAL_HOURS:-1}
+      # S03 LLM 节点：.env 默认端点（供自测闭环）+ 本地 fallback embedding 参数
+      LLM_FALLBACK_ENDPOINT: ${LLM_FALLBACK_ENDPOINT:-}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_NAME: ${LLM_FALLBACK_NAME:-platform-fallback-llm}
+      LLM_LOCAL_FALLBACK_DIM: ${LLM_LOCAL_FALLBACK_DIM:-256}
+      LLM_PROBE_TIMEOUT_SECONDS: ${LLM_PROBE_TIMEOUT_SECONDS:-15}
+      BFF_RATE_LIMIT_TENANT_QPS: ${BFF_RATE_LIMIT_TENANT_QPS:-50}
+      BFF_RATE_LIMIT_USER_QPS: ${BFF_RATE_LIMIT_USER_QPS:-10}
+      BFF_RATE_LIMIT_LOGIN_IP_PER_MIN: ${BFF_RATE_LIMIT_LOGIN_IP_PER_MIN:-5}
+      SEED_TENANT_CODE: ${SEED_TENANT_CODE:-acme}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-acme123}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Linux 下解析 host.docker.internal → 宿主（外部 LLM 端点 / 宿主发布端点经此可达）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - storage:/data/storage
+      - obsidian:/data/obsidian-vault
+    # S10 起：API 不再直接发布宿主端口（改经 webconsole/nginx → bff → api，ARCH §5.2）。
+    # 容器内仍监听 8001，BFF 经内部网络 api:8001 访问（BFF_PLATFORM_API_BASE=http://api:8001）。
+    # 如需宿主机直连调试，临时取消下行注释（8080 已被 webconsole 占用，用 18080 避开）：
+    # ports:
+    #   - "127.0.0.1:18080:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/healthz').status==200 else 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 1g
+
+  # ============================================================
+  # webconsole（S10 前端 + S11 集成复用）：nginx 托管 dist + 反代
+  # ARCH §5.2：宿主 8080 → 容器 80；/api /v1 /mcp → bff:8000
+  # 镜像多阶段构建：node22 构建 Vue3 SPA → nginx:1.27-alpine 托管
+  # ============================================================
+  webconsole:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.webconsole
+    image: agent-joker-webconsole:s14
+    container_name: joker-webconsole
+    depends_on:
+      bff:
+        condition: service_healthy
+    ports:
+      - "8080:80"   # S10/S11：浏览器 / OpenAI SDK → http://host:8080（ARCH §5.2）
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 128m
+
+  # ============================================================
+  # mock 资产（S07，DECISION-008 协议可运行样例；S11 联调 / S12 测试闭环复用）
+  # 自测/联调用，经 --profile mocks 显式启动：docker compose --profile mocks up -d
+  # 默认 `docker compose up -d` 不拉起（不影响生产口径的一键启动）。
+  # ============================================================
+  mock-mcp:
+    image: agent-joker-api:s09
+    container_name: joker-mock-mcp
+    profiles: ["mocks"]
+    command: ["python", "/app/mocks/mcp_server/server.py"]
+    environment:
+      MOCK_MCP_PORT: "9100"
+    # 工具清单内置 echo/calc（server.py DEFAULT_TOOLS，自包含；S12 如需动态改写
+    # 工具清单做 removed_remote 反向同步，docker cp tools.json 进容器即可）。
+    ports:
+      - "9100:9100"
+    mem_limit: 256m
+
+  mock-tp-agent:
+    image: agent-joker-api:s09
+    container_name: joker-mock-tp
+    profiles: ["mocks"]
+    command: ["python", "/app/mocks/third_party_agent/server.py"]
+    environment:
+      MOCK_TP_PORT: "9200"
+    ports:
+      - "9200:9200"
+    mem_limit: 256m
+
+  mock-llm:
+    image: agent-joker-api:s09
+    container_name: joker-mock-llm
+    profiles: ["mocks"]
+    command: ["python", "/app/mocks/mock_llm/server.py"]
+    environment:
+      # 9301 避开宿主 9300（joker-mock-llm-s07 旧测试资产占用，S09 已同口径）
+      MOCK_LLM_PORT: "9301"
+    ports:
+      - "9301:9301"
+    mem_limit: 256m
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
+  obsidian:

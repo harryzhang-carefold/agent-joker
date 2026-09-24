@@ -1,0 +1,1 @@
+本文档由开发阶段开发报告承接（开发阶段由章北海按模板产出并覆盖本文件；设计阶段以 02-development/ARCHITECTURE.md + DB_DESIGN.md 为事实源），本文件作废。

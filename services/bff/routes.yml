@@ -1,0 +1,13 @@
+# BFF 配置化路由表（BFF-03，DECISION-014）——新增端点改这里即可，无需改 BFF 代码。
+# 匹配：最长前缀优先（/api/bff/ 不会命中 /api/，因 BFF 本地端点由网关前置拦截）。
+# target：platformapi → BFF_PLATFORM_API_BASE（注入 X-Auth-* HMAC 签名头，DECISION-009）。
+# 热加载：POST /api/bff/routes/reload（平台级权限）原子替换内存表。
+routes:
+  # 平台 API（业务面）：/api/* 全量转发 PlatformAPI（登录端点 /api/auth/login 公开，仅 IP 限流）
+  - prefix: /api/
+    target: platformapi
+    strip_prefix: false
+  # 平台内部 API（机器凭证代执行目标，DECISION-009）：/internal/* 转发 PlatformAPI
+  - prefix: /internal/
+    target: platformapi
+    strip_prefix: false
