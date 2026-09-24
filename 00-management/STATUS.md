@@ -19,7 +19,7 @@
 - **6 个 BASE 缺陷（3 P1 + 3 P2）：全部修复并经 S16 独立 probe 复验 PASS**（BUG-01 角色 scope 读回 / BUG-02 登出吊销 token(安全) / BUG-03 时间筛选 500→200+400 / BUG-04 用户角色可读+可改 / BUG-05 refresh 200 / BUG-06 登出审计命中+tenant 非空）。
 - 核心链路（RAG 全链路 / agent 对话+工具拦截 / D-A official 引用 / D-B ToolInterceptor / D-C 独立向量表 / D-D 月分区 / 限流429 / OpenAI 兼容 / 多租户隔离）：S16 独立复跑全绿；S19 复核 refresh 轮换/登出失效/跨租户 404 无回归。
 - **无 P0、无 P1、无 P2 未修复缺陷；无阻塞性缺陷。累计 7 个缺陷（6 BASE + BUG-07）全部闭环。**
-- 代码已提交并推送远端 origin（github.com/harryzhang-carefold/agent-joker）。
+- 代码已提交（commit `ee91441`）；**推远端受阻**：本环境出口对 github.com:443 持续 RST（非代码/凭据问题），网络恢复后 `git push origin main` 即完成——P2 残留跟踪项。
 - **遗留**：真实 LLM 端点 34.121.9.233:4000 401 环境态（非代码缺陷，恢复 key 无需改代码）+ 浏览器真机点击未留档（P3）。详见 00-management/DELIVERY_REPORT.md §11。
 
 > 首轮 S13 交付（2026-09-23）发现 6 个 BASE 缺陷，已在本迭代（S14 修复 → S15 回归 → S16 终审）全部闭环。
