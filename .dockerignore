@@ -1,0 +1,18 @@
+# 构建上下文瘦身（build context = 项目根）。排除与镜像无关的产物，
+# 避免 frontend/node_modules、.git、测试/文档产物进入 docker build 上下文。
+.git
+.gitignore
+node_modules
+frontend/node_modules
+**/__pycache__
+**/*.pyc
+00-management
+01-product
+02-development
+03-testing
+04-analysis
+04-docs
+05-temp
+99-archive
+deploy/*.log
+*.log

@@ -48,10 +48,19 @@ class LLMNodeService:
     # ============================================================ 通用工具
 
     @staticmethod
-    def _row_to_node(row: Any) -> dict:
-        """DB 行 → 响应 dict（api_key 脱敏：只回 api_key_set）。"""
+    def _row_to_node(row: Any, keep_secret: bool = False) -> dict:
+        """DB 行 → 节点 dict。
+
+        - 默认（REST 响应）：api_key 脱敏——弹出加密 key，只回 `api_key_set` 布尔
+          （DECISION-012 合规：明文/密文 key 永不进入对外响应）。
+        - `keep_secret=True`（**内部专用**，BUG-11 修复）：保留 `api_key_enc`，
+          仅供进程内探测/agent 运行时/RAG 取 key 使用，**绝不进入任何 REST 响应**。
+        """
         d = dict(row._mapping)
-        enc = d.pop("api_key_enc", None)
+        if keep_secret:
+            enc = d.get("api_key_enc")  # INTERNAL：保留加密 key（永不写日志/响应）
+        else:
+            enc = d.pop("api_key_enc", None)  # REST：脱敏，只留 api_key_set
         for k, v in list(d.items()):
             if k in ("id", "tenant_id", "created_by", "updated_by") and v is not None:
                 d[k] = str(v)
@@ -94,6 +103,27 @@ class LLMNodeService:
     async def get_endpoint(self, session: AsyncSession, node_id: str) -> dict | None:
         row = await self._fetch_one(session, "SELECT * FROM llm_endpoints WHERE id = :id", node_id)
         return self._row_to_node(row) if row else None
+
+    # ============================================================ 内部取 key 通道（BUG-11 修复，内部专用，绝不进 REST）
+    #
+    # 脱敏（DECISION-012）只作用于「对外 API 响应」；平台内部探测/agent 运行时/RAG
+    # 调用需要真实凭据，走下列 keep_secret 通道。这些方法仅进程内调用，
+    # 返回的 dict 含 api_key_enc，**禁止**被任何 REST 端点直接返回给客户端。
+
+    async def get_endpoint_internal(self, session: AsyncSession, node_id: str) -> dict | None:
+        """内部专用：返回含 api_key_enc 的 endpoint（探测/agent 运行时取 key）。"""
+        row = await self._fetch_one(session, "SELECT * FROM llm_endpoints WHERE id = :id", node_id)
+        return self._row_to_node(row, keep_secret=True) if row else None
+
+    async def get_embedding_internal(self, session: AsyncSession, node_id: str) -> dict | None:
+        """内部专用：返回含 api_key_enc 的 embedding 模型（embed_texts 取 key）。"""
+        row = await self._fetch_one(session, "SELECT * FROM llm_embedding_models WHERE id = :id", node_id)
+        return self._row_to_node(row, keep_secret=True) if row else None
+
+    async def get_reranker_internal(self, session: AsyncSession, node_id: str) -> dict | None:
+        """内部专用：返回含 api_key_enc 的 reranker（rerank 取 key）。"""
+        row = await self._fetch_one(session, "SELECT * FROM llm_reranker_models WHERE id = :id", node_id)
+        return self._row_to_node(row, keep_secret=True) if row else None
 
     async def create_endpoint(self, session: AsyncSession, tenant_id: str | None, user_id: str | None, d: dict) -> dict:
         name, base_url, model = d["name"], d["base_url"], d["model"]
@@ -429,7 +459,7 @@ class LLMNodeService:
             return self._probe_fail(f"{type(exc).__name__}: {exc}", latency)
 
     async def probe_endpoint(self, session: AsyncSession, node_id: str) -> dict:
-        node = await self.get_endpoint(session, node_id)
+        node = await self.get_endpoint_internal(session, node_id)
         if node is None:
             raise HTTPException(404, f"endpoint not found: {node_id}")
         result = await self._probe_chat(node)
@@ -437,7 +467,7 @@ class LLMNodeService:
         return result
 
     async def probe_embedding(self, session: AsyncSession, node_id: str) -> dict:
-        node = await self.get_embedding(session, node_id)
+        node = await self.get_embedding_internal(session, node_id)
         if node is None:
             raise HTTPException(404, f"embedding model not found: {node_id}")
         result = await self._probe_embedding(node)
@@ -445,7 +475,7 @@ class LLMNodeService:
         return result
 
     async def probe_reranker(self, session: AsyncSession, node_id: str) -> dict:
-        node = await self.get_reranker(session, node_id)
+        node = await self.get_reranker_internal(session, node_id)
         if node is None:
             raise HTTPException(404, f"reranker model not found: {node_id}")
         result = await self._probe_reranker(node)
@@ -478,7 +508,7 @@ class LLMNodeService:
         返回 {content, tool_calls, usage}——tool_calls 为 OpenAI 原生
         [{id, type, function:{name, arguments(JSON str)}}, ...]；失败抛 HTTPException。
         """
-        node = await self.get_endpoint(session, endpoint_id)
+        node = await self.get_endpoint_internal(session, endpoint_id)
         if node is None:
             raise HTTPException(404, f"endpoint not found: {endpoint_id}")
         if node.get("status") != "active":
@@ -518,7 +548,7 @@ class LLMNodeService:
     async def embed_texts(self, session: AsyncSession, model_id: str, texts: list[str]) -> list[list[float]]:
         """统一 embedding 入口：provider=local → 本地确定性实现；provider=api → 端点调用。
         返回与 texts 等长的向量列表（维度=该模型 dimensions，D-C 建库快照同源）。"""
-        node = await self.get_embedding(session, model_id)
+        node = await self.get_embedding_internal(session, model_id)
         if node is None:
             raise HTTPException(404, f"embedding model not found: {model_id}")
         if node.get("status") != "active":
@@ -548,7 +578,7 @@ class LLMNodeService:
         self, session: AsyncSession, model_id: str, query: str, documents: list[str], top_n: int | None = None
     ) -> list[dict]:
         """统一 rerank 入口（Jina 兼容 /rerank 契约）。返回 [{index, score}]（按分降序）。"""
-        node = await self.get_reranker(session, model_id)
+        node = await self.get_reranker_internal(session, model_id)
         if node is None:
             raise HTTPException(404, f"reranker model not found: {model_id}")
         if node.get("status") != "active":

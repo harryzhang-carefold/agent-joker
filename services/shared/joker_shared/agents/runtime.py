@@ -433,7 +433,7 @@ class SimpleAgentRuntime:
         from langchain_openai import ChatOpenAI
 
         llm_svc = get_llm_service()
-        node = await llm_svc.get_endpoint(session, endpoint_id)
+        node = await llm_svc.get_endpoint_internal(session, endpoint_id)
         if node is None:
             raise HTTPException(404, f"llm endpoint not found: {endpoint_id}")
         if node.get("status") != "active":

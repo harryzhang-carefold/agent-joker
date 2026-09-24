@@ -1,0 +1,49 @@
+{
+  "run": "s23a43135",
+  "ts": "2026-09-24T09:45:35Z",
+  "host_llm": "http://host.docker.internal:9981/v1",
+  "A_create_with_key_status": 201,
+  "A_probe_status": 200,
+  "A_probe_response": {
+    "ok": true,
+    "latency_ms": 5,
+    "summary": "ok: model=fake responded in 5ms"
+  },
+  "B_create_nokey_status": 201,
+  "B_probe_status": 200,
+  "B_probe_response": {
+    "ok": false,
+    "latency_ms": 6,
+    "summary": "unavailable: response has no choices"
+  },
+  "cleanup": "deleted test nodes",
+  "A_received_requests": [
+    {
+      "has_auth": true,
+      "auth_prefix": "***s23afakekey",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    }
+  ],
+  "B_received_requests": [
+    {
+      "has_auth": false,
+      "auth_prefix": "",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    }
+  ],
+  "all_received": [
+    {
+      "has_auth": true,
+      "auth_prefix": "***s23afakekey",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    },
+    {
+      "has_auth": false,
+      "auth_prefix": "",
+      "first_line": "POST /v1/chat/completions HTTP/1.1"
+    }
+  ],
+  "verdict_A_key_sent_ok": true,
+  "verdict_B_nokey_noauth_false": true,
+  "BUG11_FIXED": true
+}

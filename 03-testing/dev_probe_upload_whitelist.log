@@ -1,0 +1,26 @@
+login ok eyJhbGciOiJI...
+{
+  "run": "s23a",
+  "upload_s23_bad.doc": {
+    "status": 422,
+    "body": "{\"detail\":\"unsupported file type .doc (旧 Word 格式), please convert to .docx\"}"
+  },
+  "upload_s23_bad.exe": {
+    "status": 422,
+    "body": "{\"detail\":\"unsupported file type .exe, please use one of: .csv, .docx, .md, .pdf, .txt, .xlsx\"}"
+  },
+  "upload_s23_bad.xls": {
+    "status": 422,
+    "body": "{\"detail\":\"unsupported file type .xls, please use one of: .csv, .docx, .md, .pdf, .txt, .xlsx\"}"
+  },
+  "upload_s23_good_243204.txt": {
+    "status": 200,
+    "body": "{\"id\":\"f6bc9249-3888-4ab6-8a41-dfde3a216a1f\",\"file_name\":\"s23_good_243204.txt\",\"size_bytes\":15,\"content_type\":\"text/plain\",\"backend\":\"local\",\"checksum_sha256\":\"4e7be1a6049ccc5a77fd6cf1adf7efee95fae28cc52aa690a75cf83b7bccec50\",\"upload_record_id\":\"531bf4b3-12eb-4093-9879-70604b53ca07\"}"
+  },
+  "upload_good_txt_name": "s23_good_243204.txt",
+  "verdict_doc_422": true,
+  "verdict_exe_422": true,
+  "verdict_xls_422": true,
+  "verdict_txt_200": true,
+  "BUG09_FIXED": true
+}

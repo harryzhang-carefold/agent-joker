@@ -2,7 +2,7 @@
   <div class="page">
     <h2>文件上传记录 <span class="text-muted">（STORE-05，scope storage:read/write）</span></h2>
     <div class="toolbar">
-      <el-upload :show-file-list="false" :before-upload="onUpload" accept=".txt,.md,.docx,.xlsx,.pdf,.png,.jpg">
+      <el-upload :show-file-list="false" :before-upload="onUpload" accept=".txt,.md,.docx,.xlsx,.pdf,.csv">
         <el-button type="primary"><el-icon><Upload /></el-icon> 上传文件</el-button>
       </el-upload>
       <el-select v-model="q.source" clearable placeholder="来源" style="width:150px" @change="load">

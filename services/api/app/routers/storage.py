@@ -26,6 +26,30 @@ def _svc():
         raise HTTPException(503, f"storage backend not configured: {exc}") from exc
 
 
+# BUG-09 修复（S23）：存储上传扩展名 allowlist（FEATURES STORE 验收 3 / P2-2 裁定）。
+# 只放行受控文档/表格/文本；.doc 旧格式应 422 并提示转 .docx；.exe/.xls 等一律拒绝。
+# 注意：RAG 知识库文档上传（/api/rag/kbs/{id}/docs）有**独立**白名单
+# （joker_shared/rag/parser.SUPPORTED_TYPES，含 png/jpg），两者不共用，本处只约束
+# 存储模块（通用文件存储），与 RAG 文档解析路径互不影响。
+ALLOWED_UPLOAD_EXTS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
+
+
+def _check_upload_ext(file_name: str | None) -> None:
+    """存储上传扩展名校验：非白名单 → 422（.doc 专属提示转 .docx）。"""
+    import os
+
+    name = (file_name or "").strip()
+    ext = os.path.splitext(name)[1].lower()
+    if ext in ALLOWED_UPLOAD_EXTS:
+        return
+    if ext == ".doc":
+        raise HTTPException(422, "unsupported file type .doc (旧 Word 格式), please convert to .docx")
+    if not ext:
+        raise HTTPException(422, "unsupported file: missing extension (allowed: " + ", ".join(sorted(ALLOWED_UPLOAD_EXTS)) + ")")
+    raise HTTPException(422, f"unsupported file type {ext}, please use one of: " + ", ".join(sorted(ALLOWED_UPLOAD_EXTS)))
+
+
+
 # ---------------------------------------------------------------- 管理面
 
 @router.get("/healthz")
@@ -50,6 +74,7 @@ async def upload_file(
 ):
     """上传文件（multipart）。同名 → 409；超配额 → 403；空文件 → 422；超限 → 413。"""
     require_scope("storage:write", auth=auth)
+    _check_upload_ext(file.filename)  # BUG-09：扩展名 allowlist（.doc→422 提示转 .docx）
     data = await file.read()
     return await _svc().upload(
         session,

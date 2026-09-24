@@ -12,6 +12,7 @@ venv/
 
 # 日志/缓存
 *.log
+!03-testing/dev_probe_*.log
 .DS_Store
 .pytest_cache/
 
