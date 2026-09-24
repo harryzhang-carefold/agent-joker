@@ -106,9 +106,11 @@ const displayName = computed(
 const initial = computed(() => (displayName.value || '?').slice(0, 1).toUpperCase())
 
 // 菜单可见性：按当前用户 scope 过滤（agent:use:* 通配 → 视为有 agent 访问权）
+// S17/BUG-07：platform_only 条目（租户管理）仅平台管理员（system 租户）可见
 function canSee(item) {
   if (!item.scope) return true
   if (item.scope === 'agent:use:*') return true
+  if (item.platform_only && !auth.isPlatformAdmin) return false
   return auth.hasScope(item.scope)
 }
 const visibleGroups = computed(() => {

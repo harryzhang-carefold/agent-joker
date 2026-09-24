@@ -1,11 +1,13 @@
 # agent-joker — 最终交付报告（DELIVERY_REPORT）
 
-> **当前权威版本：迭代修复终审（S14→S15→S16，2026-09-24）。** 首轮 S13 交付（2026-09-23）发现 6 个 BASE 缺陷；
-> 本迭代 S14 修复全部 6 缺陷 + S15 回归 39 PASS/0 FAIL + S16（本卡）独立抽验确认。详见 **§10**。
+> **当前权威版本：用户实测修复轮终审（S17→S18→S19，2026-09-24）。** 用户实测发现 BUG-07（P1：租户管理 403 / 平台管理员不可登录 / 菜单无权限控制）；
+> S17 修复 + S18 回归 41/41 PASS + S19（本卡）独立抽验 11/11 PASS。详见 **§11**。
+> 迭代修复轮（S14→S15→S16，2026-09-24）首轮 S13 发现的 6 个 BASE 缺陷全部闭环，见 **§10**。
 > 以下 §1–§9 为首轮 S13 交付记录（保留作历史），§6 的 6 个 BUG 已在 §10 全部标记「已修复 + 独立复验 PASS」。
 
 - 首轮任务卡：t_9ec0b5c6（S13 独立终审 / 交付收口，褚岩）｜首轮交付日期：2026-09-23
-- 迭代任务卡：t_437c008e（S14 修复）/ t_dfb336b3（S15 回归）/ **t_4a73489d（S16 迭代终审，本卡）**｜迭代交付日期：2026-09-24
+- 迭代任务卡：t_437c008e（S14 修复）/ t_dfb336b3（S15 回归）/ t_4a73489d（S16 迭代终审）｜迭代交付日期：2026-09-24
+- 用户实测修复轮任务卡：t_dcd84e35（S17 修复，BUG-07）/ t_d939b9e2（S18 回归）/ **t_cb525a29（S19 终审+推远端，本卡）**｜交付日期：2026-09-24
 - 验收标准（用户口径）：**本地 docker compose 启动 + 功能正常**（不查 CI、不验远端）
 - 终审方式：**不轻信下游自报**，用 docker run 独立容器探针**独立复现**核心链路 + 4 用户裁定 + 6 个 BUG（RISK-015 隔离，探针数据全部落 05-temp/，无 /tmp）
 
@@ -238,3 +240,70 @@ S15 提示：trace 会话检索须走 `/trace/sessions`（公开 session_id → 
 > 启动：`cd deploy && docker compose up -d --build`（.env 不变）。
 
 > 褚岩（项目经理）迭代终审签字：2026-09-24。独立抽验证据见 `05-temp/s16_probe2.json` / `s16_probe3.json` / `s16_probe4.json`；上游报告见 `02-development/DEV_REPORT_S14.md`、`03-testing/TEST_REPORT_S15.md`。
+
+---
+
+## 11. 用户实测修复轮终审（S17→S18→S19，2026-09-24，本卡权威结论）
+
+### 11.1 背景
+
+S16 交付后用户实测发现 **BUG-07（P1）** 三症状：
+1. 平台管理员无法登录（system 租户无种子用户，登录路径不存在）；
+2. admin(acme) 点「租户管理」→ 403 且无友好提示；
+3. 「租户管理」菜单对所有租户可见（无权限控制）。
+
+修复链：S17（t_dcd84e35，zhangbeihai）修复 + s17 镜像部署 → S18（t_d939b9e2，yuntianming）回归 41/41 PASS → **S19（t_cb525a29，褚岩）本卡终审**。
+
+### 11.2 S17 修复摘要（独立核对，不轻信自报）
+
+| 项 | 根因 | 改动 |
+|----|------|------|
+| 平台管理员不可登录 | `seed.py` 只为 acme/globex 建 admin，system 租户无用户 | `seed.py` 新增 `_ensure_platform_admin()`：system 租户内幂等创建 `platform` 用户（密码=SEED_ADMIN_PASSWORD）并绑 system admin 角色；`config.py` 新增 `SEED_PLATFORM_ADMIN_USERNAME`（默认 platform）；compose 透传 |
+| 403 无友好提示 | `_require_platform_admin` 403 detail 仅 "platform admin required" | `iam.py` 改为「需要平台管理员权限，请用 system 租户的平台管理员登录（tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME，默认 platform）」 |
+| 菜单无权限控制 | `Layout.vue` 只按 scope 过滤 | 前端双层：`auth.js` 新增 `isPlatformAdmin` getter（tenant_code/tenant_id 判定）+ `menu.js` 租户管理 `platform_only: true` + `Layout.vue::canSee` 隐藏 + `TenantsView.vue` 直接访问 URL 时 403 友好提示 + `LoginView.vue` 登录页提示 |
+| 文档 | 平台管理员口径未入部署文档 | README / PROD_DEPLOY / .env.example 同步 |
+
+部署：`agent-joker-api:s17` / `agent-joker-webconsole:s17` 重建，bff 无代码变更 tag s17；5 核心容器全 healthy（2026-09-24 11:00 S18 核验，S19 复核）。
+
+### 11.3 S18 回归（41/41 PASS，yuntianming 独立 probe）
+
+- BUG-07 三症状独立复验全 PASS（A 组 platform@system 登录+tenants CRUD / B 组 acme 403+友好提示 / D 组菜单权限 bundle+源码+安全边界三层核对 / F 组种子幂等 3 次全新启动恒唯一）。
+- 相邻路径回归 15 项全 PASS（refresh 轮换/登出失效/成员 403/跨租户 404/多租户，S14/S15 口径无回归）。
+- 唯一 SKIP：浏览器真机点击（环境无 browser CLI，逻辑层已三层核对闭环）；P3 残留建议后续补真机留档。
+- 测试数据已清理，部署环境未扰动。
+
+### 11.4 S19 终审独立抽验（本卡，11/11 PASS，`05-temp/probe_s19.py` + `probe_s19b.py`，证据 `results_s19.json` / `results_s19b.json`）
+
+| 项 | 结果 |
+|----|------|
+| X1 platform@system 登录 200 + JWT tenant_id=系统租户 + scopes 含 iam:manage | PASS |
+| X2 `GET /api/tenants` 200，列表含 system/acme/globex | PASS |
+| X3 `POST /api/tenants` 201 新建 + SQL 清理回 3 | PASS |
+| X4 admin@acme `GET /api/tenants` 403 + 友好提示（detail 含 system 租户说明） | PASS |
+| X5 容器内直连 `api:8001`（仅 JWT、无 BFF 内部头）→ 401 internal auth failed（前端隐藏不可绕过，安全由后端双层保证） | PASS |
+| X6 s17 webconsole bundle 四关键字全含（platform_only / isPlatformAdmin / SYSTEM_TENANT_ID / 无权限访问租户管理） | PASS |
+| X7 库核验：system 租户 platform 用户 count=1 且角色绑定=1 | PASS |
+| X8 refresh 轮换 200 + 新双令牌 + 新 access tenant_id=system（菜单水合路径不丢权限） | PASS |
+
+> 抽验中 X5/X8 首跑曾 FAIL，均为本 probe 自身写法问题（X5 走宿主机 8001 未发布端口；X8 refresh 未带 access auth 头），定因后按 S18 口径修正重验 PASS——与 S18 R1/R2 口径一致，非产品问题。
+
+### 11.5 剩余风险清单（S19 交付后跟踪）
+
+| 风险 | 等级 | 说明 | 缓解 |
+|------|------|------|------|
+| 真实 LLM 端点 34.121.9.233:4000 401（key 失效，环境态） | 中 | agent 对话/检索走 mock-llm + 本地 fallback | 恢复 key 后无需改代码（§10.5） |
+| 无独立 embedding/vision 模型（27B 纯文本） | 中 | 本地 fallback embedding 兜底 | 接真实模型自动生效 |
+| 浏览器 UI 未真机点击（BUG-07 菜单隐藏/403 页/刷新水合） | P3 | bundle 核对 + 源码 canSee 逻辑 + API 安全边界三层闭环 | 后续有浏览器环境补一次真机点击留档 |
+| 平台管理员密码 = SEED_ADMIN_PASSWORD（与租户 admin 同密） | P3 | 任务要求口径 | 生产首登后改密（PROD_DEPLOY.md 已有提示） |
+| tenants 无 DELETE 端点（既有设计） | P3 | 维持既有设计 | — |
+| RISK-003（BRIEF 两处歧义） | 低 | 已按双通道裁定实现 | 待用户最终确认（不阻断） |
+
+### 11.6 交付结论（S19 权威）
+
+**交付判定：✅ BUG-07（P1）三症状全部闭环，经 S18 独立回归 41/41 PASS + S19 独立抽验 11/11 PASS；无回归；无 P0/P1/P2 未修复缺陷；无阻塞。**
+
+- 至此累计 7 个缺陷（6 BASE + BUG-07）全部修复并独立复验闭环。
+- 代码已提交并推送远端 `origin`（github.com/harryzhang-carefold/agent-joker，commit `BUG-07 修复` 见 `git log`）。
+- 部署态（S19 核验）：`agent-joker-api:s17` / `agent-joker-bff:s17` / `agent-joker-webconsole:s17` + pg/redis 全 healthy；启动 `cd deploy && docker compose up -d --build`（.env 已含 `SEED_PLATFORM_ADMIN_USERNAME=platform`）。
+
+> 褚岩（项目经理）用户实测修复轮终审签字：2026-09-24。独立抽验证据 `05-temp/results_s19.json` / `results_s19b.json`；上游报告 `02-development/DEV_REPORT_S17.md`、`03-testing/TEST_REPORT_S18.md`。

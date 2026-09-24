@@ -49,7 +49,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.bff
-    image: agent-joker-bff:s14
+    image: agent-joker-bff:s17
     container_name: joker-bff
     depends_on:
       pg:
@@ -86,7 +86,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.api
-    image: agent-joker-api:s14
+    image: agent-joker-api:s17
     container_name: joker-api
     depends_on:
       pg:
@@ -124,6 +124,7 @@ services:
       SEED_TENANT_CODE: ${SEED_TENANT_CODE:-acme}
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-acme123}
+      SEED_PLATFORM_ADMIN_USERNAME: ${SEED_PLATFORM_ADMIN_USERNAME:-platform}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     # Linux 下解析 host.docker.internal → 宿主（外部 LLM 端点 / 宿主发布端点经此可达）
     extra_hosts:
@@ -152,7 +153,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.webconsole
-    image: agent-joker-webconsole:s14
+    image: agent-joker-webconsole:s17
     container_name: joker-webconsole
     depends_on:
       bff:

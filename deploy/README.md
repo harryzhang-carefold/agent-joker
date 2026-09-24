@@ -67,6 +67,7 @@ docker compose --profile mocks down -v       # 连同 volumes 清空（完全干
 | `BFF_RATE_LIMIT_TENANT_QPS/USER_QPS/LOGIN_IP_PER_MIN` | 限流默认 50/10/5（DECISION-013，运行时可经 API 即时调） |
 | `TRACE_RETENTION_DAYS` / `AUDIT_RETENTION_DAYS` | 保留天数（默认 90，D-D，月分区 + DROP PARTITION） |
 | `SEED_TENANT_CODE/SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD` | 自测种子租户 admin（另有 globex 供跨租户验收） |
+| `SEED_PLATFORM_ADMIN_USERNAME` | 平台管理员用户名（默认 `platform`），租户 `system`；**平台管理员 = tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME（默认 platform）**，密码=SEED_ADMIN_PASSWORD，租户管理菜单仅该身份可见（BUG-07） |
 | `FERNET_KEY` | 留空=启动随机生成（**重启后旧密文不可解，生产必须固定 44 位 urlsafe base64**） |
 
 密钥一律 `.env` 注入，不进镜像/日志（DECISION-012）。

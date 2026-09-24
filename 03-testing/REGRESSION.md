@@ -96,3 +96,16 @@ RAG-02 上传/来源/解析（未等 parse ready，probe10 复现 6/6+ready+2chu
 - **核心链路回归：PASS**（RAG 全链路 / 简易+第三方 agent 闭环 / trace 全链路 / 限流 429 / 多租户隔离 / D-B 拦截 / D-C 向量表 / D-D 保留分区 全部通过）。
 - **产品验收：未全过**（6 个真实缺陷，其中 3 个 P1）。**项目不可判定「功能测试 PASS / 可交付」**，需章北海修复 6 个 BUG 后由本卡执行回归（修复后重跑 BASE 权限链路 + 登出 + 时间筛选 + 用户角色分配 + refresh + 登出审计），再交 S13 终审。
 - **无阻塞性 BUG**：核心链路未中断，故未 kanban_block；3 个 P1 为功能/安全缺陷（权限、登出失效、日志筛选），非链路跑不通，按流程记录 BUGS.md 交褚岩派单。
+
+---
+
+## 6. S17 修复后回归（S18，t_d939b9e2，yuntianming）
+
+- **BUG-07（P1）修复复验：PASS**（独立 probe 26/26，不轻信 S17 自报；详见 TEST_REPORT_S18.md）。
+  - 平台管理员 `platform@system` 登录 200 + JWT tenant_id=系统租户 + iam:manage；`GET/POST/PUT /api/tenants` 200/201/200。
+  - `admin@acme` / 普通成员 `GET /api/tenants` → **403 + 友好提示**（含 system + platform 说明）。
+  - 菜单权限：bundle 含 `platform_only/isPlatformAdmin/SYSTEM_TENANT_ID`/403 提示文案 + 源码 `canSee` 逻辑核对 + 直接 API（无 BFF 内部头）401（前端隐藏不可绕过，安全由后端双层保证）。
+  - **种子幂等独立验证**：s17 镜像全新进程跑 `seed_all()` 3 次，`platform` 用户恒=1、角色绑定恒=1、acme/globex admin 各=1（不重复建）。
+- **无回归**（probe_s18b 15/15）：refresh 轮换 200 + 重放 401（整族吊销）/ 登出后 access 401 + refresh 401（S14/S15 BUG-02/05 口径）/ 跨租户用户 id 404（S12 基线）/ globex 多租户正常。
+- **SKIP**：浏览器真机点击走查（本环境 browser CLI 不可用）——逻辑层三层核对已闭环，建议有浏览器环境时补留档（P3 级残留）。
+- **结论：S17 修复有效，BUG-07 闭环，无回归，无阻塞。**

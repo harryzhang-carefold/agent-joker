@@ -8,6 +8,9 @@ const LS_ACCESS = 'joker.access'
 const LS_REFRESH = 'joker.refresh'
 const LS_USER = 'joker.user'
 
+// 系统租户（平台运营）固定 ID（init_schema.sql 种子，S17/BUG-07：菜单权限控制）
+export const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 function readUser() {
   try {
     const raw = localStorage.getItem(LS_USER)
@@ -26,6 +29,13 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isLoggedIn: (s) => !!s.accessToken,
     tenantCode: (s) => (s.user && s.user.tenant_code) || null,
+    // 平台管理员（S17/BUG-07）：当前用户属于 system 租户（tenant_code=system 或
+    // tenant_id=系统租户固定 ID）。仅平台管理员可见「租户管理」菜单。
+    isPlatformAdmin: (s) => {
+      const tc = (s.user && s.user.tenant_code) || s.tenantCode
+      const tid = s.user && s.user.tenant_id
+      return tc === 'system' || tid === SYSTEM_TENANT_ID
+    },
     scopes: (s) => (s.user && s.user.scopes) || [],
     hasScope: (s) => (name) => (s.scopes || []).includes(name),
   },

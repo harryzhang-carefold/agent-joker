@@ -13,7 +13,7 @@ const routes = [
       { path: 'users', name: 'users', component: () => import('@/views/base/UsersView.vue'), meta: { title: '用户管理', group: '基础', scope: 'iam:manage' } },
       { path: 'roles', name: 'roles', component: () => import('@/views/base/RolesView.vue'), meta: { title: '角色管理', group: '基础', scope: 'iam:manage' } },
       { path: 'scopes', name: 'scopes', component: () => import('@/views/base/ScopesView.vue'), meta: { title: '权限(scope)', group: '基础', scope: 'iam:manage' } },
-      { path: 'tenants', name: 'tenants', component: () => import('@/views/base/TenantsView.vue'), meta: { title: '租户管理', group: '基础', scope: 'iam:manage' } },
+      { path: 'tenants', name: 'tenants', component: () => import('@/views/base/TenantsView.vue'), meta: { title: '租户管理', group: '基础', scope: 'iam:manage', platform_only: true } },
       { path: 'audit', name: 'audit', component: () => import('@/views/base/AuditView.vue'), meta: { title: '接口操作日志', group: '基础', scope: 'trace:read' } },
       // 存储
       { path: 'storage/files', name: 'files', component: () => import('@/views/storage/FilesView.vue'), meta: { title: '文件上传记录', group: '存储', scope: 'storage:read' } },

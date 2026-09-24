@@ -432,7 +432,10 @@ class TenantCreate(BaseModel):
 
 def _require_platform_admin(auth: dict) -> None:
     if not (auth.get("is_platform_admin") or auth["tenant_id"] == "00000000-0000-0000-0000-000000000001"):
-        raise HTTPException(status_code=403, detail="platform admin required")
+        raise HTTPException(
+            status_code=403,
+            detail="需要平台管理员权限，请用 system 租户的平台管理员登录（tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME，默认 platform）",
+        )
 
 
 @router.get("/tenants")

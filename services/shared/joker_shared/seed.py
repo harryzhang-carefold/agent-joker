@@ -151,7 +151,13 @@ async def apply_schema() -> None:
 
 
 async def ensure_seed_users() -> None:
-    """每个自测租户：补租户/内置角色/admin 用户（密码 = SEED_ADMIN_PASSWORD，幂等）。"""
+    """每个自测租户：补租户/内置角色/admin 用户（密码 = SEED_ADMIN_PASSWORD，幂等）。
+
+    另为 system 租户补平台管理员用户（S17/BUG-07）：
+    username = SEED_PLATFORM_ADMIN_USERNAME（默认 platform），
+    密码 = SEED_ADMIN_PASSWORD，绑定 system 租户内置 admin 角色。
+    平台管理员登录后（tenant_id=系统租户）即可使用「租户管理」（/api/tenants）。
+    """
     engine = get_engine()
     pw = hash_password(settings.SEED_ADMIN_PASSWORD)
     async with engine.begin() as conn:
@@ -224,6 +230,49 @@ async def ensure_seed_users() -> None:
                     text("UPDATE users SET password_hash=:pw WHERE id=:id"),
                     {"pw": pw, "id": u[0]},
                 )
+
+        # 5) 平台管理员（system 租户，S17/BUG-07；init_schema.sql 已建 system 租户
+        #    + 内置 admin/member 角色并绑平台级 scope，这里只补用户行 + 角色绑定，幂等）
+        await _ensure_platform_admin(conn, pw)
+
+
+async def _ensure_platform_admin(conn, pw: str) -> None:
+    """system 租户平台管理员用户（幂等）：不存在则创建并绑 admin 角色。"""
+    row = await conn.execute(text("SELECT id FROM tenants WHERE code='system'"))
+    t = row.first()
+    if t is None:
+        log.warning("system tenant missing; skip platform admin seed")
+        return
+    tid = str(t[0])
+    uname = settings.SEED_PLATFORM_ADMIN_USERNAME
+    row = await conn.execute(
+        text("SELECT id, password_hash FROM users WHERE tenant_id=:t AND username=:u AND deleted_at IS NULL"),
+        {"t": tid, "u": uname},
+    )
+    u = row.first()
+    if u is None:
+        uid = str(uuid.uuid4())
+        await conn.execute(
+            text("INSERT INTO users (id, tenant_id, username, password_hash, display_name, status) "
+                 "VALUES (:id, :t, :u, :pw, :dn, 'active')"),
+            {"id": uid, "t": tid, "u": uname, "pw": pw, "dn": "平台管理员"},
+        )
+        row = await conn.execute(
+            text("SELECT id FROM roles WHERE tenant_id=:t AND name='admin' AND deleted_at IS NULL"),
+            {"t": tid},
+        )
+        role = row.first()
+        if role:
+            await conn.execute(
+                text("INSERT INTO user_roles (user_id, role_id) VALUES (:u, :r) ON CONFLICT DO NOTHING"),
+                {"u": uid, "r": role[0]},
+            )
+        log.info("seed platform admin user %s@system created", uname)
+    elif "REPLACE_BY_BOOTSTRAP" in (u[1] or ""):
+        await conn.execute(
+            text("UPDATE users SET password_hash=:pw WHERE id=:id"),
+            {"pw": pw, "id": u[0]},
+        )
 
 
 async def seed_all() -> None:

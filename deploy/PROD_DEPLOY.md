@@ -40,6 +40,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `SEED_ADMIN_PASSWORD` | ✅ | ≥12 位，含大小写+数字+符号 | 初始 admin 密码。种子仅在首启（空库）执行，之后改密码走管理台 |
 | `SEED_ADMIN_USERNAME` | 建议 | 默认 admin | 建议改非 admin 名 |
 | `SEED_TENANT_CODE` | 建议 | 默认 acme | 首租户编码，建议用公司域名前缀 |
+| `SEED_PLATFORM_ADMIN_USERNAME` | 建议 | 默认 platform | 平台管理员用户名（system 租户）：**平台管理员 = tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME（默认 platform）**，密码=SEED_ADMIN_PASSWORD；「租户管理」菜单/`/api/tenants` 仅该身份可用 |
 
 ## 3. 强烈建议填写（真实能力开关）
 
@@ -99,6 +100,7 @@ FERNET_KEY=<Fernet.generate_key() 固定值>
 SEED_TENANT_CODE=<公司前缀>
 SEED_ADMIN_USERNAME=<非admin的超管名>
 SEED_ADMIN_PASSWORD=<≥12位强密码>
+SEED_PLATFORM_ADMIN_USERNAME=<平台管理员名，默认 platform，租户 system>
 
 # ===== 真实 LLM（强烈建议） =====
 LLM_FALLBACK_ENDPOINT=<OpenAI兼容/v1端点；本机服务用 http://host.docker.internal:port/v1>

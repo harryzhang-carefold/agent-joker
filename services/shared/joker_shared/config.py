@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     SEED_TENANT_CODE: str = "acme"
     SEED_ADMIN_USERNAME: str = "admin"
     SEED_ADMIN_PASSWORD: str = "acme123"
+    # 平台管理员（system 租户，S17/BUG-07）：租户管理功能入口。
+    # 密码同样取 SEED_ADMIN_PASSWORD，绑定 system 租户内置 admin 角色。
+    SEED_PLATFORM_ADMIN_USERNAME: str = "platform"
 
     # --- 日志 ---
     LOG_LEVEL: str = "INFO"

@@ -18,7 +18,9 @@
         <el-button type="primary" class="full" :loading="loading" @click="onLogin">登录</el-button>
       </el-form>
       <div class="hint text-muted">
-        种子租户 <code>acme</code> / 用户 <code>admin</code>（密码见 .env SEED_ADMIN_PASSWORD）
+        种子租户 <code>acme</code> / 用户 <code>admin</code>（密码见 .env SEED_ADMIN_PASSWORD）<br />
+        平台管理员（租户管理）：租户 <code>system</code> / 用户
+        <code>platform</code>（SEED_PLATFORM_ADMIN_USERNAME）
       </div>
     </el-card>
   </div>

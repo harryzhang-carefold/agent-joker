@@ -38,6 +38,8 @@
 | 13 | S13 t_9ec0b5c6 | chuyan | 终审验收+交付：独立 compose 抽验+BUG 核对+4 用户裁定核对+DELIVERY_REPORT | S12 |
 
 ## 监控处理日志（monitor 写入，新条目在最上）
+- [2026-09-24 tick, 主 agent] NORMAL（终态确认 #4）。16 卡全 done，无 todo/ready/blocked/gave_up，重试计数 0/5；交付报告已发，不重复投递。静默。
+- [2026-09-24 tick, 主 agent] NORMAL（终态确认 #3）。16 卡全 done，无 todo/ready/blocked/gave_up，重试计数 0/5；交付报告已发，不重复投递。静默。
 - [2026-09-24 05:43 tick, 主 agent] NORMAL（终态确认 #2）。16 卡全 done，无 todo/ready/blocked/gave_up，重试计数 0/5；交付报告 02:11 已发，本 tick 不重复投递。静默。
 - [2026-09-24 02:33 tick, 主 agent] NORMAL（终态确认）。16 卡全 done，无 todo/ready/blocked/gave_up，重试计数 0/5；S16 交付报告已于 02:11 tick 发出（02:26 进度汇报 cron 亦确认 16/16），本 tick 不重复投递。静默。
 - [2026-09-24 S16 收口, 主 agent/褚岩] ITERATION_DONE（迭代链 S14→S15→S16 全 done）。S16(t_4a73489d chuyan 迭代终审) 独立抽验完成并更新 DELIVERY_REPORT.md §10 / STATUS.md / BUGS.md：不轻信 S14/S15 自报，docker run 独立容器 probe 在 s14 部署上复验 6/6 BUG 全 PASS + agent 核心闭环独立复跑全绿（RAG 真实命中1+official强制引用 forced_official=True / D-B工具拦截2轮+tool_call事件 / D-C独立向量表 / D-D月分区 / 限流429 / OpenAI兼容 / 多租户404）+ 前端 BASE-08 两跳核对正确（SessionsView 用 row.id）。6 缺陷全闭环，无 P0/P1/P2 未修复项，无阻塞；唯一遗留=真实 LLM 端点 401 环境态（非代码缺陷，恢复 key 自动生效）。**迭代交付完成，无 todo/ready/blocked 卡。**
@@ -78,3 +80,9 @@
 - ALL_DONE=YES（S01-S13 全 done，chain_age_h≈23）
 - 已发 Feishu 交付报告（oc_999abb02faae68ad62a82a40b7934809）：compose 启动步骤 + 10/10 链路 + 4/4 裁定 + 剩余风险
 - 已自删 cron job joker-dev-orchestration-watchdog (7f343506fa21)；监控链正式收口。
+
+## 2026-09-24 用户实测修复轮（S17~S19）
+- S17 t_dcd84e35 (章北海) BUG-07: 租户管理403+system租户无平台管理员种子+菜单权限控制 — todo
+- S18 t_d939b9e2 (云天明) 回归 — todo
+- S19 t_cb525a29 (褚岩) 终审+推远端 — todo
+- cron: 汇报 edd574370d23 / 看门狗 已重建

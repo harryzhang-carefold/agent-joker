@@ -1,6 +1,7 @@
 // S10 菜单配置（与 router meta 对齐）。scope=null 表示所有登录用户可见。
 // 多租户 UI：数据天然按当前用户 JWT 租户行级过滤（BFF 强制）；
 // 平台管理员（iam:manage）可在「租户管理」跨租户管理。
+// S17/BUG-07：platform_only 标记的条目仅平台管理员（system 租户）可见。
 export const menu = [
   {
     group: '基础',
@@ -9,7 +10,7 @@ export const menu = [
       { path: '/users', title: '用户管理', scope: 'iam:manage' },
       { path: '/roles', title: '角色管理', scope: 'iam:manage' },
       { path: '/scopes', title: '权限 (scope)', scope: 'iam:manage' },
-      { path: '/tenants', title: '租户管理', scope: 'iam:manage' },
+      { path: '/tenants', title: '租户管理', scope: 'iam:manage', platform_only: true },
       { path: '/audit', title: '接口操作日志', scope: 'trace:read' },
     ],
   },

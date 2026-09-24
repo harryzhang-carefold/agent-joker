@@ -8,7 +8,7 @@
 - **未改任何代码**，BUG 由褚岩派单给章北海修复。
 - **无阻塞性 BUG（核心链路未跑通）**：RAG 建库→上传→解析→切分→向量化→检索、简易/第三方 agent 闭环、trace 全链路、限流 429 均通过（109 PASS + S11 e2e 43/43 佐证），检索 0 命中为自测 fallback embedding 环境产物而非链路中断（见 TEST_REPORT §3-RAG07）。故**不 kanban_block**。
 
-## 缺陷汇总（3 P1 + 3 P2，无 P0）
+## 缺陷汇总（4 P1 + 3 P2，无 P0）
 
 | ID | 严重 | 模块 | 现象 | 影响 | 状态 |
 |----|------|------|------|------|------|
@@ -18,6 +18,7 @@
 | BUG-04 | P2 | BASE 权限 | 用户角色分配不可读 + 无法仅改角色（422） | BASE-02/03 用户角色验收无法经 API 验证 | 已修（S14，probe 复验 D1-D6 PASS） |
 | BUG-05 | P2 | BASE 令牌 | 新 refresh token 换取新 access → 401 | BASE-09「刷新可用」不稳定，需复测确认 | 已关闭（S14 复测未复现：干净刷新 200，原 FAIL 为限流多登录的 refresh 家族轮换产物，E1-E3 PASS） |
 | BUG-06 | P2 | BASE 日志 | 登出操作未见于接口操作日志 | BASE-05 验收 2 未满足 | 已修（S14，probe 复验 F1-F2 PASS） |
+| BUG-07 | P1 | BASE 租户管理 | admin(acme) 点「租户管理」菜单 403；平台管理员无法登录（system 租户无种子用户） | 租户管理功能不可达，非平台用户菜单无权限控制 | 已修（S17，probe 复验 A1-A9/B1-B4 13/13 PASS） |
 
 > S14 修复报告：02-development/DEV_REPORT_S14.md（根因/改动/复验证据）；
 > 复验 probe：05-temp/probe_s14_v2.py（29/29 PASS，run 见 DEV_REPORT §回归）。
@@ -90,6 +91,33 @@
 - **实际**：查无。
 - **未决根因**：`AuditMiddleware`（api/app/middleware.py:71）异步非阻断写审计，可能存在写-读竞态；或与 BUG-02 的 BFF 剥离 Authorization 路径相关（登出经 BFF 转发，鉴权态/租户归属可能异常）。**未定死**，需复测（登出后延迟再查 / 直接查 API 侧审计表）。
 - **影响**：审计完整性（登出这一敏感操作无痕），低概率为时序产物，故 P2 待复测。
+
+## BUG-07（P1）租户管理 403 + 平台管理员不可登录（system 租户无种子用户）+ 菜单无权限控制
+- **现象**（用户实测，2026-09-24 迭代反馈）：
+  1. `admin`（acme 租户）登录后点「租户管理」菜单 → 报 403。
+  2. 平台管理员无法登录——`system` 租户（`init_schema.sql` 已建租户 + admin/member 角色）没有种子用户，登录路径不存在。
+  3. 前端 `Layout.vue` 菜单对所有登录用户都显示「租户管理」，未按当前租户/权限控制。
+- **根因**（已定位）：
+  1. `services/api/app/routers/iam.py::_require_platform_admin` 要求 `is_platform_admin` 或 `tenant_id==系统租户 00000000-...-0001`。acme 租户 admin 不满足 → 403（设计正确，但缺平台管理员账号）。
+  2. `services/shared/joker_shared/seed.py` 的 `SEED_TENANTS` 只含 acme/globex，`system` 租户无种子用户 → 平台管理员登录路径不存在，租户管理功能不可达。
+  3. 前端 `frontend/src/config/menu.js` + `Layout.vue` 的「租户管理」条目只按 `iam:manage` scope 过滤，未区分租户 → 非平台用户也可见（点了才 403）。
+- **修复**（S17，zhangbeihai，t_dcd84e35）：
+  1. **种子**：新增 env `SEED_PLATFORM_ADMIN_USERNAME`（默认 `platform`，`.env.example` 同步）；`seed.py::_ensure_platform_admin` 在 `system` 租户创建平台管理员用户（密码=`SEED_ADMIN_PASSWORD`，绑 system 租户 admin 角色），**幂等**（重启不重复建）。
+  2. **前端**：登录 JWT claims 含 `tenant_id`/`tenant_code`——`Layout.vue` 的「租户管理」菜单仅当 `tenant_code==system` 或 `tenant_id==系统租户` 时显示（`isPlatformAdmin` getter + `menu.js` `platform_only` 标记），其他用户不显示。`TenantsView` 直接改 URL 访问时保留 403 兜底并显示友好提示（「需要平台管理员权限，请用 system 租户的平台管理员登录」）。
+  3. **API**：`_require_platform_admin` 403 detail 改为友好提示（含 `tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME` 说明）。
+  4. **文档**：`deploy/README.md`、`deploy/PROD_DEPLOY.md`、`.env.example` 补「平台管理员 = tenant_code=system + SEED_PLATFORM_ADMIN_USERNAME（默认 platform）」。
+- **复验**（S17，probe `05-temp/probe_s17.py` 13/13 PASS，run 见 DEV_REPORT_S17 §回归）：
+  - A) `platform@system` 登录 200，JWT `tenant_id`=系统租户 + `iam:manage`；`GET/POST/PUT /api/tenants` 200/201/200（列表含 system/acme/globex，新建租户可更新回读）。
+  - B) `admin@acme` 登录 200，`GET /api/tenants` → **403 + 友好提示**；本租户 `/api/users` 仍 200（回归，租户内 admin 权限不受影响）。
+  - C) 重启幂等：重建 api 容器后 `platform` 用户仍唯一（count=1，不重复建）。
+  - 前端：s17 镜像 dist 含 `platform_only` / `isPlatformAdmin` / `SYSTEM_TENANT_ID`（已核对 bundle）。
+- **S18 独立回归**（t_d939b9e2，yuntianming，2026-09-24，不轻信 S17 自测）：
+  - 独立 probe `05-temp/probe_s18.py` **26/26 PASS** + 回归组 `probe_s18b.py` **15/15 PASS**（报告 03-testing/TEST_REPORT_S18.md，REGRESSION.md §6）。
+  - 种子幂等独立验证：s17 镜像全新进程 `seed_all()` ×3，`platform` 恒=1、角色绑定恒=1（`05-temp/s18_seed_idem.py`）。
+  - 补验安全边界：直接 API（不带 BFF 内部 X-Auth-* 头）`/api/tenants` → 401 internal auth（前端菜单隐藏不可绕过，BFF HMAC + API 双层保证）。
+  - 无回归：refresh 轮换/登出失效/跨租户 404/多租户（S14/S15 口径）全过。
+  - SKIP：浏览器真机点击（环境无 browser CLI），逻辑层三层核对闭环（bundle + 源码 canSee + API 安全边界）。
+- **影响闭环**：租户管理功能可达（平台管理员 `platform@system`）；非平台用户菜单隐藏 + 直接访问 403 友好提示；与 S12 既有 6 BUG 无回归。
 
 ---
 
