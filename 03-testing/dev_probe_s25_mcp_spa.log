@@ -1,0 +1,28 @@
+{
+  "run": "s25a",
+  "target": "http://localhost:8080",
+  "/mcp/servers": {
+    "http_code": 200,
+    "content_type": "text/html",
+    "size_bytes": 735,
+    "body_snippet": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>agent-joker WebConsole</title>\n    <sc"
+  },
+  "/mcp/servers/123/tools": {
+    "http_code": 200,
+    "content_type": "text/html",
+    "size_bytes": 735,
+    "body_snippet": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>agent-joker WebConsole</title>\n    <sc"
+  },
+  "/api/mcp/servers": {
+    "http_code": 401,
+    "content_type": "application/json",
+    "size_bytes": 34,
+    "body_snippet": "{\"detail\": \"missing access token\"}"
+  },
+  "verdict": {
+    "mcp_spa_200_html": true,
+    "mcp_deeplink_200_html": true,
+    "api_prefix_401_json": true,
+    "BUG10_NO_REGRESSION": true
+  }
+}

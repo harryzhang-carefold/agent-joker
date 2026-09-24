@@ -49,7 +49,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.bff
-    image: agent-joker-bff:s23
+    image: agent-joker-bff:s25
     container_name: joker-bff
     depends_on:
       pg:
@@ -91,7 +91,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.api
-    image: agent-joker-api:s23
+    image: agent-joker-api:s25
     container_name: joker-api
     depends_on:
       pg:

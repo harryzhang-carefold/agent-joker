@@ -1,0 +1,65 @@
+# ============================================================
+# S25a BUG-11 探测链路 Bearer 前缀修复 — 开发自测证据
+# 生成: 2026-09-24 21:08 (CST) | 部署: agent-joker-api/bff:s25
+# 方法: 宿主 127.0.0.1:9981 严格伪鉴权 (05-temp/s25a_strict_pseudoauth.py)
+#       只接受精确 "Bearer <非空>"；对 wire Authorization 值记录 val_len + val_sha256
+# 判定: SHA256 字节级精确比对 sha256("Bearer "+KEY)（char-code 构建，抗显示脱敏）
+#       —— 未使用任何 ("bearer" in low) 子串判定（S23a 误报根因，QA_STANDARD §四）
+# 脚本: 05-temp/s25a_bug11_probe.py | 原始结果: 05-temp/s25a_bug11_result.json
+#       wire 原始抓取: 05-temp/s25_strict_raw.jsonl
+# ============================================================
+
+KEY = qa-s25a-key-7731
+EXPECTED  = sha256("Bearer " + KEY) = 747c31578a31fea82596d81fd96775d2f7689574b2ffd18b2140d2afc6eb2fd3  (len=23)
+BROKEN_REF= sha256("***"     + KEY) = 09375637a17afecc5542d646f33ed1ba08190f242b484d77ba6716a10b2af872  (len=19, S23 缺陷形态参照)
+
+[源码级铁证]
+工作树 services/shared/joker_shared/llm/service.py:358
+  行内容 = `        return {"Authorization": "Bearer " + key}`
+  行 len=49 | 行 SHA256=933ae99df3d24e93e2839b481077d76276897aaf6fcb7822ed9676a9d3eb5a33 == 期望行 SHA256 (match=True)
+  全文件 "Bearer " 出现 1 次 | "***" 出现 0 次
+镜像级铁证 (docker exec joker-api 内 /app/joker_shared/llm/service.py)
+  行 SHA256=933ae99df3d24e93e2839b481077d76276897aaf6fcb7822ed9676a9d3eb5a33 (match=True) | bearer_count=1 mask_count=0
+镜像级铁证 (docker exec joker-bff 内同源文件)
+  bearer_count=1 mask_count=0
+
+[A] 探测链路 — 带 key 节点 (POST /api/llm/endpoints/{id}/test)
+  A_probe: 200 ok=true latency_ms=27 summary="ok: model=fake responded in 27ms"
+  wire: has_header=True val_len=23
+        val_sha256=747c31578a31fea82596d81fd96775d2f7689574b2ffd18b2140d2afc6eb2fd3
+  比对: val_len==23 && val_sha256==sha256("Bearer "+KEY)  →  逐字节精确匹配 (CORRECT_BEARER, byte_match=True)
+  与 S23 缺陷形态 (len=19, ca17c0ca…/09375637…) 比对: 不匹配
+  结论: 探测链路已发出 Authorization: Bearer ***  →  PASS
+
+[B] 探测链路 — 无 key 节点 (对照)
+  B_probe: 200 ok=false summary="unavailable: response has no choices"
+  wire: has_header=False val_len=0 val_sha256=null  →  NO_HEADER
+  结论: 无 key 节点不带 Authorization 头、探测正确判失败  →  PASS
+
+[C] agent 运行时链路不回归 (POST /v1/chat/completions, 绑带 key 节点)
+  chat: 200 content="pong"
+  wire: has_header=True val_len=23
+        val_sha256=747c31578a31fea82596d81fd96775d2f7689574b2ffd18b2140d2afc6eb2fd3
+  比对: 逐字节精确匹配 (CORRECT_BEARER, byte_match=True)
+  结论: 运行时链路保持已修状态  →  PASS
+
+[BUG-10 /mcp/servers SPA 无回归]  (03-testing/dev_probe_s25_mcp_spa.log)
+  /mcp/servers             200 text/html (SPA)
+  /mcp/servers/123/tools   200 text/html (SPA 深链)
+  /api/mcp/servers         401 application/json (BFF 鉴权, 正确)
+  BUG10_NO_REGRESSION = true  →  PASS
+
+[BUG-09 上传白名单无回归]  (03-testing/dev_probe_s25_upload_whitelist.log)
+  evil.exe    422 (unsupported .exe)
+  legacy.doc  422 (unsupported .doc 旧 Word 格式)
+  sheet.xls   422 (unsupported .xls)
+  ok_s25a.txt 200 (落盘 + checksum)
+  BUG09_NO_REGRESSION = true  →  PASS
+
+[部署状态]
+  docker compose ps: joker-api s25 healthy | joker-bff s25 healthy | joker-webconsole healthy
+                     joker-pg healthy | joker-redis healthy (6 容器全 healthy)
+  8080 → 200 text/html | bff 8000/healthz → 200
+
+== 总结论: BUG11_OVERALL_PASS = true (6/6 字节级判定全部通过) ==
+BUGS.md 不擅自关单 —— 由测试 S25b 独立复验后回写。

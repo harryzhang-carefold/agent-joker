@@ -1,0 +1,28 @@
+{
+  "run": "s25a",
+  "evil.exe": {
+    "http_code": 422,
+    "expected": 422,
+    "body": "{\"detail\":\"unsupported file type .exe, please use one of: .csv, .docx, .md, .pdf, .txt, .xlsx\"}",
+    "pass": true
+  },
+  "legacy.doc": {
+    "http_code": 422,
+    "expected": 422,
+    "body": "{\"detail\":\"unsupported file type .doc (旧 Word 格式), please convert to .docx\"}",
+    "pass": true
+  },
+  "sheet.xls": {
+    "http_code": 422,
+    "expected": 422,
+    "body": "{\"detail\":\"unsupported file type .xls, please use one of: .csv, .docx, .md, .pdf, .txt, .xlsx\"}",
+    "pass": true
+  },
+  "ok_s25a.txt": {
+    "http_code": 200,
+    "expected": 200,
+    "body": "{\"id\":\"7031a7cb-0360-4b9a-a3f5-c1d973ef5597\",\"file_name\":\"ok_s25a.txt\",\"size_bytes\":10,\"content_type\":\"text/plain\",\"backend\":\"local\",\"checksum_sha256\":\"c10bd00b3f1d12c63f5a807238e33334a1dfb33511eade265b8df3ef4cba25f7\",\"upload_record_id\":\"9a066ab4-2cc1-48c3-b5df-4da6f8b0904e\"}",
+    "pass": true
+  },
+  "BUG09_NO_REGRESSION": true
+}

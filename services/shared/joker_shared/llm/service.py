@@ -355,7 +355,7 @@ class LLMNodeService:
         key = decrypt_secret(api_key_enc)
         if scheme == "api_key_header":
             return {"X-API-Key": key}
-        return {"Authorization": "***" + key}
+        return {"Authorization": "Bearer " + key}
 
     async def _probe_chat(self, node: dict) -> dict:
         base = (node.get("base_url") or "").rstrip("/")
