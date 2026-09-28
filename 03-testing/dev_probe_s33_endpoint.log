@@ -1,0 +1,6 @@
+time: 2026-09-28T15:21:57.754943
+GET /v1/models -> 200: {"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790580120,"owned_by":"vllm","root":"/models/gte-Qwen2-1.5B-instruct","parent":null,"max_model_len":16384,"permission":[{"id":"modelperm-abcc8acede539e4c","object":"model_permission","created":1790580120,"allow_create_engine":false,"allow_sampling":true,"allow_logprobs":true,"allow_search_indices":false,"allow_view":true,"allow_fine_tuning":false,"organization":"*","group":null,"is_blocking":false}]}]}
+served models: ['gte-Qwen2-1.5B-instruct']
+POST /v1/embeddings (model=gte-qwen2) -> 404: {"error":{"message":"The model `gte-qwen2` does not exist.","type":"NotFoundError","param":"model","code":404}}
+POST /v1/embeddings (model=gte-Qwen2-1.5B-instruct) -> 200: {"id":"embd-a2379a3465faaff0","object":"list","created":1790580122,"model":"gte-Qwen2-1.5B-instruct","data":[{"index":0,"object":"embedding","embedding":[-0.011048654094338417,0.05264453962445259,-0.0
+embedding dims: 1536

@@ -272,7 +272,23 @@
     - E) 3584 维库上传 .txt → 201 → doc `status=ready` chunk=2 → 检索 200 命中 2 + 唯一 marker 命中（score 0.65/0.61，top1 正确）
   - 顺序扫描专项（`dev_probe_s32_bug19_seqscan.log`，脚本 `dev_probe_s32_seqscan.py`）：临时 3584 维表无 HNSW 索引下跑检索 SQL → **EXPLAIN = Seq Scan**（非 Index Scan），top1 = 最相似向量（sim 0.999991，排序正确）→ **PASS**。
   - **外部 3584 端点状态记录**（`dev_probe_s32_bug19_endpoint.log`）：自测期间 `34.64.61.208:4000` ① 06:41 端点侧故障（HTTP 全断连，容器与宿主均复现）→ ② 06:49 恢复但 `/embeddings` 对 DB 配置 model=`gte-qwen2` 返回 404 → ③ 最终复测确认端点**实际服务模型 `gte-Qwen2-1.5B-instruct`（1536 维）**，与 DB 行的 `gte-qwen2`（3584 维）**漂移**。故 3584 维文档流水线用**本地 3584 维 provider**（`local://fallback`，确定性向量）完成闭环，3584 维真实外部端点链路待端点侧恢复 3584 模型后由 S33 复测（RISK-019）。该漂移是**端点侧环境态**（vLLM 重启换了模型），非平台代码缺陷——建库 201 / 无 HNSW / 顺序扫描检索正确性均与端点无关。
-- **S32 严重度/状态**：P1，**已修复（S32 自测 12/12 + seqscan PASS）**，待 S33 独立复测 + 回归。详见 `02-development/DEV_REPORT_S32.md`。
+- **S33 独立复测（yuntianming，t_28d8f1f7，2026-09-28，不采信 S32 自报）**：真实 UI 复测 + 回归全 PASS，详见 `03-testing/TEST_REPORT_S33.md`：
+  - 主 UI（`dev_probe_s33_ui.log`，19/20）：3584 维（**真实模型行 `s26-gte-qwen2-real`**）建库 **201**（修复前=500，核心）；3584local 上传 2 文档→ready（无 HNSW 顺序扫描路径）→检索命中（200，marker 命中，top1 0.535）；换模型 reindex 触发 200；256 维建库（HNSW 分支）201→上传→ready→检索命中；KB 列表/详情正常；删库 3×200。
+  - 索引/EXPLAIN 独立铁证（`dev_probe_s33_index.log` + `dev_probe_s33_index_check.sql`）：3584 维库 `pg_indexes` **无 hnsw**（仅 pkey）；256 维库 **1 个 hnsw**；3584 无索引表 `EXPLAIN` = **Seq Scan**（非 Index Scan）+ top1 正确。
+  - 换模型 reindex 初轮 #10 FAIL 定因 = **测试脚本轮询缺陷**（读已加载表格 `textContent` 未 `page.reload`，读到陈旧 `reindexing` 快照）；API 日志铁证 `reindex done kb=f61a9f22…(dim=256)` + DB `dim=256/status=active` + 修正复测 `dev_probe_s33_reindex_retest.log` **8/8 PASS**（reindex 完成耗时 4.8s）→ 非产品缺陷。
+  - 外部 3584 端点（RISK-019）复核（`dev_probe_s33_endpoint.log`）：`34.64.61.208:4000` 仍漂移（服务 1536 维 gte-Qwen2-1.5B-instruct，`/embeddings model=gte-qwen2` 404），3584 文档链路以 local provider 闭环为准。
+  - 部署核验：api/bff 镜像 s32 容器内代码含 S32 三处修复（`init_schema.sql:892 IF p_dim<=2000` / `service.py:379 if new_dim<=2000` / `service.py:232` 可读500提示）；PG 函数 `create_rag_chunks_vec` 体内含 `IF p_dim <= 2000` 分支。
+- **S32/S33 严重度/状态**：P1，**已修复（S32 自测 12/12 + S33 独立复测 + 回归全 PASS，验收标准满足）**，交 S34 终审。详见 `02-development/DEV_REPORT_S32.md`、`03-testing/TEST_REPORT_S33.md`。
+
+---
+
+## BUG-20（P3 · UX 观察）KB 列表页 reindex 状态无自动刷新（S33 发现，非缺陷/非阻塞）
+
+- **现象**：在 KB 列表页触发「换模型」reindex 后，列表行状态停留 `reindexing`，**不会自动推进为 `active`**——用户须手动点「刷新」/「文档」/导航才能看到最终 `active`（维度已切换）。
+- **根因**：`frontend/src/views/rag/KbListView.vue` 列表仅 `onMounted(load)` + 手动「刷新」/行操作后 `load()`，**无轮询/自动刷新**；reindex 是异步后台任务（`service.py _run_reindex`，完成时 UPDATE status=active），前端无订阅机制。
+- **影响**：仅 UX 体验（状态推进需手动刷新），**功能正确**（后端 reindex 实际 ~5s 完成，`dim`/`status` 最终正确；S33 复测铁证）。**非 BUG-19 范围、非 S32 引入**（列表本无自动刷新逻辑），不阻塞验收。
+- **建议**：后续可在 reindexing 状态下加轮询（或 toast 提示「重算完成」）。
+- **状态**：P3 观察项，记于此，待后续排期（非本轮范围）。
 
 ---
 

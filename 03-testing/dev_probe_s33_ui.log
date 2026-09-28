@@ -1,0 +1,42 @@
+PASS | 00 真实表单登录 acme/admin | {"status":200,"url":"http://localhost:8080/users"}
+{"ts":"2026-09-28T07:35:09.747Z","case":"00 真实表单登录 acme/admin","pass":true,"status":200,"url":"http://localhost:8080/users"} true
+PASS | 01 建库 3584维(真实模型行 s26-gte-qwen2-real)→201 | {"api":201,"kbid":"6b5509cb-c9ff-4c88-afc8-f66178c705c3","toasts":["建库成功（已建独立向量表）"]}
+{"ts":"2026-09-28T07:35:15.741Z","case":"01 建库 3584维(真实模型行 s26-gte-qwen2-real)→201","pass":true,"api":201,"kbid":"6b5509cb-c9ff-4c88-afc8-f66178c705c3","toasts":["建库成功（已建独立向量表）"]} true
+PASS | 02 KB列表 3584行可见+维度=3584 | {"rowText":"s33_kb_3584real_s33908145无3584rag_chunks_vec_6b5509cbc9ff4c88afc8f66178c705c305 / 0.3active文档换模型删库"}
+{"ts":"2026-09-28T07:35:15.791Z","case":"02 KB列表 3584行可见+维度=3584","pass":true,"rowText":"s33_kb_3584real_s33908145无3584rag_chunks_vec_6b5509cbc9ff4c88afc8f66178c705c305 / 0.3active文档换模型删库"} true
+PASS | 03 建库 3584维(local provider)→201 | {"api":201,"kbid":"f61a9f22-e2e2-44cb-9abb-9570ff05b566","toasts":["建库成功（已建独立向量表）"]}
+{"ts":"2026-09-28T07:35:21.750Z","case":"03 建库 3584维(local provider)→201","pass":true,"api":201,"kbid":"f61a9f22-e2e2-44cb-9abb-9570ff05b566","toasts":["建库成功（已建独立向量表）"]} true
+PASS | 04 进入 3584local KB 文档详情 | {"url":"http://localhost:8080/rag/kbs/f61a9f22-e2e2-44cb-9abb-9570ff05b566"}
+{"ts":"2026-09-28T07:35:23.328Z","case":"04 进入 3584local KB 文档详情","pass":true,"url":"http://localhost:8080/rag/kbs/f61a9f22-e2e2-44cb-9abb-9570ff05b566"} true
+PASS | 05 上传文档1 (zephyr_quartz_marmoset_A_s33908145) | {"api":201,"toasts":["已上传 s33_doc1_s33908145.txt（入队解析流水线）"]}
+{"ts":"2026-09-28T07:35:26.916Z","case":"05 上传文档1 (zephyr_quartz_marmoset_A_s33908145)","pass":true,"api":201,"toasts":["已上传 s33_doc1_s33908145.txt（入队解析流水线）"]} true
+PASS | 06 上传文档2 (quartz_marmoset_zephyr_B_s33908145) | {"api":201,"toasts":["已上传 s33_doc2_s33908145.txt（入队解析流水线）"]}
+{"ts":"2026-09-28T07:35:30.519Z","case":"06 上传文档2 (quartz_marmoset_zephyr_B_s33908145)","pass":true,"api":201,"toasts":["已上传 s33_doc2_s33908145.txt（入队解析流水线）"]} true
+PASS | 07 3584local 2 文档流水线→ready (无 HNSW 顺序扫描) | {"tableText":"s33_doc1_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除 s33_doc2_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除"}
+{"ts":"2026-09-28T07:35:34.857Z","case":"07 3584local 2 文档流水线→ready (无 HNSW 顺序扫描)","pass":true,"tableText":"s33_doc1_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除 s33_doc2_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除"} true
+PASS | 08 检索测试 3584local 命中(顺序扫描) | {"api":200,"items":4,"hitA":true,"top":{"score":0.534993,"content":"S33 probe document. Unique marker: zephyr_quartz_marmoset_A_"}}
+{"ts":"2026-09-28T07:35:38.806Z","case":"08 检索测试 3584local 命中(顺序扫描)","pass":true,"api":200,"items":4,"hitA":true,"top":{"score":0.534993,"content":"S33 probe document. Unique marker: zephyr_quartz_marmoset_A_"}} true
+PASS | 09 换模型 reindex 触发(3584→256) | {"api":200,"toasts":["已触发换模型重算（异步，状态 reindexing）"]}
+{"ts":"2026-09-28T07:35:44.693Z","case":"09 换模型 reindex 触发(3584→256)","pass":true,"api":200,"toasts":["已触发换模型重算（异步，状态 reindexing）"]} true
+FAIL | 10 换模型完成: status=active 且 dim=256 | {"rowText":"s33_kb_3584local_s33908145无3584rag_chunks_vec_f61a9f22e2e244cb9abb9570ff05b56625 / 0.3reindexing文档换模型删库"}
+{"ts":"2026-09-28T07:37:16.097Z","case":"10 换模型完成: status=active 且 dim=256","pass":false,"rowText":"s33_kb_3584local_s33908145无3584rag_chunks_vec_f61a9f22e2e244cb9abb9570ff05b56625 / 0.3reindexing文档换模型删库"} true
+PASS | 13 回归 建库 256维(HNSW 分支)→201 | {"api":201,"kbid":"2974243a-20c7-4ed5-b5ad-65dc38c888f2","toasts":["建库成功（已建独立向量表）"]}
+{"ts":"2026-09-28T07:37:22.106Z","case":"13 回归 建库 256维(HNSW 分支)→201","pass":true,"api":201,"kbid":"2974243a-20c7-4ed5-b5ad-65dc38c888f2","toasts":["建库成功（已建独立向量表）"]} true
+PASS | 13b 回归 上传 256 文档 | {"api":201}
+{"ts":"2026-09-28T07:37:25.170Z","case":"13b 回归 上传 256 文档","pass":true,"api":201} true
+PASS | 14 回归 256 文档流水线→ready (HNSW) | {"tableText":"s33_doc256_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除"}
+{"ts":"2026-09-28T07:37:29.276Z","case":"14 回归 256 文档流水线→ready (HNSW)","pass":true,"tableText":"s33_doc256_s33908145.txttxtreadytext2默认继承库级-对比重切分重试删除"} true
+PASS | 15 回归 检索 256 命中(HNSW) | {"api":200,"items":2,"top":{"score":0.625495}}
+{"ts":"2026-09-28T07:37:32.681Z","case":"15 回归 检索 256 命中(HNSW)","pass":true,"api":200,"items":2,"top":{"score":0.625495}} true
+PASS | 16 KB列表正常(3584+256 行可见) | {"rows":36,"has3584":true,"has256":true}
+{"ts":"2026-09-28T07:37:34.292Z","case":"16 KB列表正常(3584+256 行可见)","pass":true,"rows":36,"has3584":true,"has256":true} true
+PASS | 17 KB详情正常(256) | {"detailText":" 知识库列表s33_kb_256_s33908145非官方rag_chunks_vec_2974243a20c74ed5b5ad65dc38c888f2 · dim 256 · active 上传文档状态 刷新文档状态机: uploaded"}
+{"ts":"2026-09-28T07:37:35.889Z","case":"17 KB详情正常(256)","pass":true,"detailText":" 知识库列表s33_kb_256_s33908145非官方rag_chunks_vec_2974243a20c74ed5b5ad65dc38c888f2 · dim 256 · active 上传文档状态 刷新文档状态机: uploaded"} true
+PASS | 18 删库 s33_kb_3584real_s33908145 | {"api":200,"toasts":["已删库"]}
+{"ts":"2026-09-28T07:37:41.485Z","case":"18 删库 s33_kb_3584real_s33908145","pass":true,"api":200,"toasts":["已删库"]} true
+PASS | 18 删库 s33_kb_3584local_s33908145 | {"api":200,"toasts":["已删库"]}
+{"ts":"2026-09-28T07:37:47.094Z","case":"18 删库 s33_kb_3584local_s33908145","pass":true,"api":200,"toasts":["已删库"]} true
+PASS | 18 删库 s33_kb_256_s33908145 | {"api":200,"toasts":["已删库"]}
+{"ts":"2026-09-28T07:37:52.816Z","case":"18 删库 s33_kb_256_s33908145","pass":true,"api":200,"toasts":["已删库"]} true
+
+==== S33 UI SUMMARY: 19/20 PASS (RUN=s33908145) ====

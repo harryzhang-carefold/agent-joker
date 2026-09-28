@@ -1,0 +1,18 @@
+PASS | 登录 | {"status":200}
+{"ts":"2026-09-28T07:40:28.563Z","case":"登录","pass":true,"retest":true,"status":200} true
+PASS | 建库 3584local | {"api":201,"kbid":"5765c26b-85af-4449-a5a3-bf7ccd0e99ed"}
+{"ts":"2026-09-28T07:40:31.642Z","case":"建库 3584local","pass":true,"retest":true,"api":201,"kbid":"5765c26b-85af-4449-a5a3-bf7ccd0e99ed"} true
+PASS | 上传文档1 | {"api":201}
+{"ts":"2026-09-28T07:40:34.127Z","case":"上传文档1","pass":true,"retest":true,"api":201} true
+PASS | 上传文档2 | {"api":201}
+{"ts":"2026-09-28T07:40:35.338Z","case":"上传文档2","pass":true,"retest":true,"api":201} true
+PASS | 2文档 ready (3584 顺序扫描) | {}
+{"ts":"2026-09-28T07:40:38.207Z","case":"2文档 ready (3584 顺序扫描)","pass":true,"retest":true} true
+PASS | 换模型触发 3584→256 | {"api":200}
+{"ts":"2026-09-28T07:40:41.282Z","case":"换模型触发 3584→256","pass":true,"retest":true,"api":200} true
+PASS | 换模型完成 active+256 (reload 轮询) | {"wallSec":"4.8"}
+{"ts":"2026-09-28T07:40:44.245Z","case":"换模型完成 active+256 (reload 轮询)","pass":true,"retest":true,"wallSec":"4.8"} true
+PASS | 删库清理 | {"api":200}
+{"ts":"2026-09-28T07:40:45.906Z","case":"删库清理","pass":true,"retest":true,"api":200} true
+
+==== S33 reindex RE-TEST: 8/8 PASS (RUN=s33r26936) ====

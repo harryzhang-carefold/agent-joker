@@ -1,0 +1,5 @@
+[0] login -> 200 token=yes
+[1] register 3584 local model -> 201 id=58b35f7f-20a2-420d-afca-4ef9d35ad1c3
+[2] create kb 3584 -> 201 id=9bda7dcc-b41e-4ff6-b138-cc37ac3db3b6
+[2] create kb 256  -> 201 id=a0844d58-1bd6-44b6-a74a-69b8c5518e0a
+IDS RUN=s33idx581381 kb3584=9bda7dcc-b41e-4ff6-b138-cc37ac3db3b6 kb256=a0844d58-1bd6-44b6-a74a-69b8c5518e0a
