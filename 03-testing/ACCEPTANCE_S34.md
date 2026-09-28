@@ -93,6 +93,7 @@ S32：256 建库/上传/ready/检索全 PASS。S33：#13/#13b/#14/#15/#16/#17/#1
 
 ## 五、Push 记录
 
-- 一次 push 内容：S32 修复（fe1cb5a，本地既有）+ S33 证据（TEST_REPORT_S33 + 5 份 log + sql + 38 张截图）+ S34 验收（本文件）+ BUGS.md/PIPELINE.md 回写。
-- push 远端核验：push 后 `git ls-remote origin main` 与本地 HEAD 一致（见 commit 后记录）。
-- 本地 commit hash：见 git log（S32 = `fe1cb5a`；S33/S34 = 本 commit）。
+- 一次 push 内容：S32 修复（fe1cb5a，本地既有）+ S33 证据（TEST_REPORT_S33 + 5 份 log + sql + 38 张截图）+ S34 验收（本文件）+ BUGS.md/PIPELINE.md/STATUS.md/DECISIONS.md 回写。
+- 本地 commit hash：S32 修复 = `fe1cb5a`；S33/S34 证据与验收 = `b5e5df2`（HEAD）。
+- **push 远端核验（已执行）**：`git push origin main` → `6bef164..b5e5df2 main -> main`；push 后 `git ls-remote origin main` = `b5e5df280b1f57d992338b9113a7091ab7017e74` = 本地 HEAD，远端与本地一致（非自报）。
+- push 前工作树核验：`05-temp/` 已 gitignore（不推诊断脚本）；提交内容 = 12 个跟踪文件 + 38 张截图，无遗漏、无越界。
