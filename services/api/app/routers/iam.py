@@ -86,6 +86,10 @@ async def create_user(
     require_scope("iam:manage", auth=auth)
     t = auth["tenant_id"]
     uid = str(uuid.uuid4())
+    # BUG-18 修复：空串 email 归一化为 NULL。
+    # uq_users_tenant_email UNIQUE(tenant_id, email) 在 PG 下 NULL 互不撞、
+    # 空串互撞 → 前端不填邮箱（email=""）恒 409。
+    email = req.email.strip() if req.email else None
     try:
         await session.execute(
             text(
@@ -94,7 +98,7 @@ async def create_user(
                 VALUES (:id, :t, :u, :e, :pw, :dn, 'active', :by)
                 """
             ),
-            {"id": uid, "t": t, "u": req.username, "e": req.email,
+            {"id": uid, "t": t, "u": req.username, "e": email,
              "pw": crypto.hash_password(req.password), "dn": req.display_name, "by": auth["user_id"]},
         )
     except Exception as exc:  # 唯一约束（username/email）→ 409
@@ -151,7 +155,10 @@ async def update_user(
     if req.display_name is not None:
         sets.append("display_name=:dn"); params["dn"] = req.display_name
     if req.email is not None:
-        sets.append("email=:e"); params["e"] = req.email
+        # BUG-18 修复：空串 email 归一化为 NULL（与 create 同口径；
+        # 用户在编辑框清空邮箱 → 存 NULL，不再撞唯一约束）
+        sets.append("email=:e")
+        params["e"] = req.email.strip() if req.email else None
     if req.status is not None:
         sets.append("status=:st"); params["st"] = req.status
     # BUG-04 修复：仅 role_names 也是合法更新（BASE-02 验收「用户可分配/变更角色」）

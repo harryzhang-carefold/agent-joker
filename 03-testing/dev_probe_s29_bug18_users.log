@@ -1,0 +1,19 @@
+=== S29/BUG-18 dev_probe — 开始 2026-09-28 12:32:01
+A0) POST /api/auth/login acme/admin -> 200 ok
+A) POST /api/users email='' -> 201 (206ms) body={"id":"478e9f09-d021-4453-9ead-9396dcc720f1","username":"s29bug18_a_1790569922"}  EXPECT=201 PASS=True
+B) POST /api/users no email field -> 201 (202ms) body={"id":"88b7cd51-1ac4-4ec7-902a-ecfb67afccf3","username":"s29bug18_b_1790569922"}  EXPECT=201 PASS=True
+C) POST /api/users unique email -> 201 (197ms)  EXPECT=201 PASS=True
+D) POST /api/users duplicate email (same as C) -> 409 (196ms) body={"detail":"username or email already exists"}  EXPECT=409 PASS=True
+A/B-readback GET /api/users/478e9f09-d021-4453-9ead-9396dcc720f1 email=None  EXPECT=None PASS=True
+A/B-readback GET /api/users/88b7cd51-1ac4-4ec7-902a-ecfb67afccf3 email=None  EXPECT=None PASS=True
+G) PUT /api/users/bfff180e-e00a-4715-aa75-18a9495a806b email='' -> 200 (9ms); readback email=None  EXPECT=200+null PASS=True
+cleanup DELETE /api/users/478e9f09-d021-4453-9ead-9396dcc720f1 -> 200
+cleanup DELETE /api/users/88b7cd51-1ac4-4ec7-902a-ecfb67afccf3 -> 200
+cleanup DELETE /api/users/bfff180e-e00a-4715-aa75-18a9495a806b -> 200
+=== S29/BUG-18 dev_probe — 结束
+E) 既有空串 email 归一化（启动归一化，joker-api 日志铁证）:
+   2026-09-28 04:30:03,610 INFO joker.seed: BUG-18 normalize: 1 users with empty-string email set to NULL
+   部署前 DB 核对（psql）: 本轮 compose 库中 email='' 行数=1（S27 早期脏数据多数已在 S27 诊断中被软删/带 email，库为事实源）
+   归一化后 psql: SELECT count(*) FROM users WHERE email='' -> 0; SELECT count(*) FROM users WHERE email IS NULL -> 28
+F) 归一化幂等可重跑（psql 执行与 seed 同语句 UPDATE users SET email=NULL WHERE email='' AND deleted_at IS NULL）:
+   UPDATE 0（no-op，第二次重跑 0 行）-> 幂等 PASS

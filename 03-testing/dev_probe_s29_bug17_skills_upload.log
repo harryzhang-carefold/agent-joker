@@ -1,0 +1,11 @@
+=== S29/BUG-17 dev_probe — 开始 2026-09-28 12:34:19
+A0) POST /api/auth/login acme/admin -> 200 ok
+A) POST /api/skills/upload 单文件 不传name (file=s29bug17_a_1790570059.md) -> 201 (16ms) name='s29bug17_a_1790570059'  EXPECT=201 name=s29bug17_a_1790570059 PASS=True
+B) POST /api/skills/upload 多文件 不传name -> 201 (18ms) name='s29bug17_b_1790570059' file_count=2 files=['s29bug17_b_1790570059.md', 's29bug17_b_asset_1790570059.json']  EXPECT=201 fc=2 PASS=True
+C) POST /api/skills/upload 显式name=s29bug17_c_1790570059 -> 201 (14ms) name='s29bug17_c_1790570059'  EXPECT=201 name=显式值 PASS=True
+D) POST /api/skills/upload 重复name(=C) -> 409 (8ms) body={"detail":"skill name already exists: s29bug17_c_1790570059"}  EXPECT=409 PASS=True
+A-readback GET /api/skills/8df9f6c5-cc9f-4bcc-a3e7-e7acc861656c name='s29bug17_a_1790570059' source=upload file_count=1 content_head='# skill a 1790570059\ncontent A\n' PASS=True
+cleanup DELETE /api/skills/8df9f6c5-cc9f-4bcc-a3e7-e7acc861656c -> 200
+cleanup DELETE /api/skills/bc4acaea-9b79-4a63-9c3c-0f1f4919375a -> 200
+cleanup DELETE /api/skills/18787c90-4a62-4ebf-9341-cdbed1d74e64 -> 200
+=== S29/BUG-17 dev_probe — 结束

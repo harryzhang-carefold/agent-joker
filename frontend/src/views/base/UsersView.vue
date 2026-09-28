@@ -167,7 +167,10 @@ async function onSave() {
       ElMessage.success('已更新')
     } else {
       if (form.value.password.length < 6) return ElMessage.warning('密码至少 6 位')
-      await api.createUser(form.value)
+      // BUG-18 修复：空邮箱不传 email 字段（后端对 email='' 亦归一化为 NULL，双保险）
+      const body = { ...form.value }
+      if (!body.email || !String(body.email).trim()) delete body.email
+      await api.createUser(body)
       ElMessage.success('已创建')
     }
     dialog.value = false

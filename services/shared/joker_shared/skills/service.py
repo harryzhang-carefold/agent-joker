@@ -122,17 +122,23 @@ class SkillsService:
 
     async def upload_skill(
         self, session: AsyncSession, tenant_id: str, user_id: str | None,
-        name: str, files: list[tuple[str, bytes, str | None]], description: str | None = None,
+        name: str | None, files: list[tuple[str, bytes, str | None]], description: str | None = None,
     ) -> dict:
         """上传 skill 文件（SKILL-01 验收 2 / SKILL-02 验收 2）。
 
         files: [(file_name, data, content_type)]。第一个=main（入口文件，如 SKILL.md，
         文本类内容同步进 skills.content）；其余=asset。文件经 StorageService 落存储
         （source=skill，上传记录可查来源=skill）。
+
+        **name 可选（S29/BUG-17）**：未提供时默认取首个文件名去扩展名
+        （与内联创建 name 语义一致）；仍为空 → 422。
         """
         name = (name or "").strip()
+        if not name and files:
+            first = (files[0][0] or "").rsplit(".", 1)[0].strip()
+            name = first
         if not name:
-            raise HTTPException(422, "name is required")
+            raise HTTPException(422, "name is required (provide name or a file with a name)")
         if not files:
             raise HTTPException(422, "at least one file is required")
         for fn, data, _ in files:

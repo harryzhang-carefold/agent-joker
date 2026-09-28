@@ -71,7 +71,7 @@ async def create_skill(
 
 @router.post("/upload", status_code=201)
 async def upload_skill(
-    name: str = Form(...),
+    name: str | None = Form(None),
     description: str | None = Form(None),
     files: list[UploadFile] = File(...),
     auth: dict = Depends(auth_context),
@@ -79,8 +79,11 @@ async def upload_skill(
 ):
     """上传 skill 文件（SKILL-01 验收 2 / SKILL-02 验收 2）。
 
-    multipart：`name` + `files[]`（第一个=main 入口文件，文本类内容同步进 content；
-    其余=asset）。文件经 StorageService 落存储（source=skill，上传记录可查来源=skill）。
+    multipart：`files[]`（第一个=main 入口文件，文本类内容同步进 content；
+    其余=asset）+ 可选 `name`/`description`。
+    **契约修复（S29/BUG-17）**：`name` 由必填改**可选**——未提供时
+    默认取首个文件名去扩展名（与内联创建 name 语义一致：skill 名 = 入口文件名）。
+    文件经 StorageService 落存储（source=skill，上传记录可查来源=skill）。
     """
     require_scope("skills:manage", auth=auth)
     parsed: list[tuple[str, bytes, str | None]] = []

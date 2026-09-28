@@ -275,6 +275,26 @@ async def _ensure_platform_admin(conn, pw: str) -> None:
         )
 
 
+async def _normalize_empty_emails() -> None:
+    """BUG-18 修复：一次性把既有空串 email 归一化为 NULL（幂等，可随每次启动重跑）。
+
+    背景：uq_users_tenant_email UNIQUE(tenant_id, email) 在 PG 下 NULL 互不撞、
+    空串互撞 → 既有脏数据（email=''）会让新「不填邮箱」的用户继续 409。
+    归一化后空邮箱用户统一落 NULL，与 create/update 的归一化口径一致。
+    """
+    engine = get_engine()
+    async with engine.begin() as conn:
+        r = await conn.execute(
+            text("UPDATE users SET email = NULL WHERE email = '' AND deleted_at IS NULL")
+        )
+        n = r.rowcount or 0
+        if n:
+            log.info("BUG-18 normalize: %d users with empty-string email set to NULL", n)
+        else:
+            log.info("BUG-18 normalize: no empty-string email rows (idempotent no-op)")
+
+
 async def seed_all() -> None:
     await apply_schema()
     await ensure_seed_users()
+    await _normalize_empty_emails()

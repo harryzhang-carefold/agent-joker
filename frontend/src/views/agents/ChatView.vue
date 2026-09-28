@@ -164,7 +164,10 @@ async function onSend() {
 
 function finalize(ai, acc) {
   ai.streaming = false
-  if (!ai.content) ai.content = ''
+  // BUG-16 修复：块式路径只写 acc.content，finalize 必须回写到 ai.content
+  // （SSE 路径 onDelta 已直写 ai.content，此处以非空 acc.content 兜底不覆盖；
+  //  onError 路径已先写 ai.content=错误文案，acc.content 为空，不覆盖错误提示）
+  if (acc.content && !ai.content) ai.content = acc.content
   ai.tool_calls = acc.tool_calls
   ai.citations = acc.citations
   if (acc.sessionId) session.value = acc.sessionId

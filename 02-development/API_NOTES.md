@@ -55,9 +55,9 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/users?page=1&page_size=50` | 本租户用户列表（含 roles 聚合） |
-| POST | `/api/users` | 创建用户。体：`{"username","password"(≥6位, bcrypt),"email"?,"display_name"?,"role_names":[...]?}` → 201 `{id,...}`；409 username/email 已存在 |
+| POST | `/api/users` | 创建用户。体：`{"username","password"(≥6位, bcrypt),"email"?,"display_name"?,"role_names":[...]?}` → 201 `{id,...}`；409 username/email 已存在（S29/BUG-18：`email=""` 归一化为 NULL，与不传 email 同口径，空邮箱互不撞唯一约束） |
 | GET | `/api/users/{user_id}` | 详情；**跨租户 ID → 404**（不泄露存在性） |
-| PUT | `/api/users/{user_id}` | 更新（email/display_name/status/role_names）；status ∈ active/disabled |
+| PUT | `/api/users/{user_id}` | 更新（email/display_name/status/role_names）；status ∈ active/disabled（S29/BUG-18：`email=""` 归一化为 NULL） |
 | DELETE | `/api/users/{user_id}` | 软删除（`deleted_at=now`） |
 | POST | `/api/users/{user_id}/reset-password` | 管理员重置密码。体：`{"password"}`；重置后该用户全部 refresh 吊销 |
 
@@ -344,7 +344,7 @@
 | GET | `/api/skills?status=&source=&page=&page_size=` | 本租户 skill 列表 `{items[], total}`；status=active\|disabled；source=manual\|upload；item 含 `name/description/source/status/version/file_count/created_at/updated_at` |
 | GET | `/api/skills/{skill_id}` | 详情（含 `files:[{file_name, role, size_bytes, content_type}]`）；404 |
 | POST | `/api/skills` | 内联创建（`skills:manage`）。必选 `name`；可选 `description`/`content` → 201；409 本租户重名 |
-| POST | `/api/skills/upload` | 多文件上传（`skills:manage`）：multipart `files[]`（≥1，.md/.txt 等）→ 201（主文件=首文件，存 storage source=skill，回写 file_count）；409 重名；422 空/非法类型 |
+| POST | `/api/skills/upload` | 多文件上传（`skills:manage`）：multipart `files[]`（≥1，.md/.txt 等）+ **可选 `name`**（S29/BUG-17：缺省时默认取首文件名去扩展名）+ 可选 `description` → 201（主文件=首文件，存 storage source=skill，回写 file_count）；409 重名；422 空/非法类型 |
 | PUT | `/api/skills/{skill_id}` | 更新（`skills:manage`）：`name/description/content/status`；重名 409 |
 | DELETE | `/api/skills/{skill_id}` | 删除（`skills:manage`）：软删 + 物理删主/资产文件 → `{ok, files_deleted:[...], files_skipped:[...]}`；被 RAG 文档引用的文件跳过不删 |
 
