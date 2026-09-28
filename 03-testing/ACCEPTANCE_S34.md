@@ -97,3 +97,4 @@ S32：256 建库/上传/ready/检索全 PASS。S33：#13/#13b/#14/#15/#16/#17/#1
 - 本地 commit hash：S32 修复 = `fe1cb5a`；S33/S34 证据与验收 = `b5e5df2`（HEAD）。
 - **push 远端核验（已执行）**：`git push origin main` → `6bef164..b5e5df2 main -> main`；push 后 `git ls-remote origin main` = `b5e5df280b1f57d992338b9113a7091ab7017e74` = 本地 HEAD，远端与本地一致（非自报）。
 - push 前工作树核验：`05-temp/` 已 gitignore（不推诊断脚本）；提交内容 = 12 个跟踪文件 + 38 张截图，无遗漏、无越界。
+- push 核验补记（`7cb541f`）：push 后补记本文件 → `b5e5df2..7cb541f`，ls-remote = `7cb541f` = 本地 HEAD，远端最终一致。
