@@ -2,7 +2,7 @@
 
 > 当前状态快照。每次任务完成后由褚岩更新。
 
-- **项目阶段**：**QA 标准修复轮已交付（S22 打回 → S23a 修复 → S23 回归 FAIL → S25a 修复 → S25b 回归 PASS → S24 终审通过，2026-09-24，S24 为终审权威）**
+- **项目阶段**：**全量重测轮验收 FAIL 打回（2026-09-26 用户下令重测：S26 自测 98/98 + S27 浏览器测试 45PASS/4FAIL → S28 终审防造假核查通过但发现 3 个真实产品 BUG 未修 → 建 S29 修复 / S30 回归）**
 - **总体进度**：设计 100%；开发 100%（S01..S11 + S14 + S17 + S20 + S23a + S25a）；测试 100%（S12 146 项 + S15 40 项 + S18 41 项 + S21 浏览器全功能 + S23 回归 + S25b 回归 PASS）；终审 100%（S13 首轮 + S16 迭代 + S19 实测 + S22 打回 + S24 终审通过）
 - **产品**：100%（FEATURES 57 功能点 + FLOW_DIAGRAMS 21 图，定稿）
 - **技术设计**：100%（ARCHITECTURE 9 章 + DB_DESIGN 34 表 + DECISIONS 001..028）
@@ -11,7 +11,8 @@
 - **终审**：S13 首轮 + S16 迭代 + S19 实测 + **S22 按新 QA 标准打回** + **S24 终审通过（6/6 核对 + 独立复跑铁证，交付）**
 
 ## 当前阻塞
-无。项目已交付。
+- **S28 验收 FAIL（2026-09-28）**：S27 新发现 3 个真实产品 BUG 未修复 —— **BUG-16（P1，Agent 默认块式对话模式 AI 气泡恒空）** / BUG-17（P2，Skill 文件上传恒 422）/ BUG-18（P2，不填邮箱建用户恒 409）。QA_STANDARD §三「P0/P1 全关闭」不满足 → 不 push 不交付。S29（zhangbeihai 修复）→ S30（yuntianming 回归）进行中。
+- **RISK-016（用户操作项）**：生产 vLLM API key 已在聊天多次暴露，需轮换 34.121.9.233:4000 key 并同步平台端点配置（S30 回归前）。
 
 ## 交付结论（2026-09-24，S24 终审，权威）
 - **QA_STANDARD §三 6 项逐项核对 6/6 PASS**；S24 独立复跑铁证（SHA256 重算 + 容器实码 + 全新 key 严格伪鉴权端到端）全通过。
@@ -39,6 +40,7 @@
 - RISK-003（BRIEF 两处歧义，已按双通道裁定实现）待用户最终确认（不阻断）。
 
 ## 最近更新
+- 2026-09-28：**S28 全量重测验收 FAIL 打回（本卡 t_4b6efa6d）**。防造假核查 3/3 PASS（grep 28 个 S27 脚本 fetch/localStorage 零命中；goto 24 处逐条判读全部登录后站内跳转；5 张截图独立 vision 核验与报告步骤一致；S26 真实端点 34.121.9.233/34.64.61.208 原始 200 响应无 mock 冒充）；S27 发现 3 个真实产品 BUG（BUG-16 P1 / 17 P2 / 18 P2）源码定因独立复核全部成立 → QA_STANDARD §三「P0/P1 全关」不满足，不 push。建 S29（zhangbeihai 修复）/ S30（yuntianming 回归）。验收报告 `03-testing/ACCEPTANCE_S28.md` + DECISION-029 + RISK-016/017。遗留：用户需轮换 vLLM key（已多次暴露）。
 - 2026-09-24：**S24 终审通过，项目交付**。QA_STANDARD §三 6/6 PASS + 独立复跑铁证（SHA256 重算 / 容器实码 Bearer×1 掩码×0 / 全新 key 严格伪鉴权 A ok=true wire 逐字节 CORRECT_BEARER + B NO_HEADER）；DELIVERY_REPORT §12（含 QA 证据清单）+ DECISION-028（新 QA 标准）落盘；代码推送远端 origin。
 - 2026-09-24：S25b 回归 **PASS**（yuntianming 独立复验，测试自定 key）：BUG-11 A/B/C/D 全 PASS（A 探测 ok=true + wire sha256("Bearer "+key) 逐字节；B 无 key NO_HEADER/ok=false；C agent 运行时 200+pong；D 真实端点 ok=true）+ BUG-10/09 无回归 + 9 模块冒烟 14/14 + DEP_VERIFICATION 刷新 + BUGS.md BUG-11 关闭。
 - 2026-09-24：S25a 修复（zhangbeihai，commit 9fd0a93）：`_auth_header` bearer 前缀 `***` → `Bearer `（仅 bearer 分支）+ s25 镜像重建 + 字节级自测 3 张 dev_probe。

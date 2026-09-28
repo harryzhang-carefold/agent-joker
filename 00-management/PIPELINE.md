@@ -43,6 +43,10 @@
 | 13 | S13 t_9ec0b5c6 | chuyan | 终审验收+交付：独立 compose 抽验+BUG 核对+4 用户裁定核对+DELIVERY_REPORT | S12 |
 
 ## 监控处理日志（monitor 写入，新条目在最上）
+- [2026-09-28 11:55 tick, 主 agent] NORMAL（心跳）。S27(t_159f9f4b yuntianming) run#270 自 11:11 running, run_age_h≈0.7 (<3h); 11:51 持续落盘 05-temp/s27/report_cases.md + gen_report_cases.py（3 FAIL 复测定因中: retest_results.jsonl 11:48 更新 + s27chat 多张新截图 11:45-46, 正按断点续做清单收尾写报告, 非假死）; S28(t_4b6efa6d chuyan) todo 待 S27; 无 blocked/gave_up/预算耗尽, 重试 1/5（run#270）。静默观察。
+- [2026-09-28 11:33 tick, 主 agent] NORMAL（心跳）。S27(t_159f9f4b yuntianming) run#270 自 11:11 running, run_age_h≈0.37 (<3h), 心跳至 11:32 每分钟活跃; 11:21-11:31 持续落盘 05-temp/s27/（retest_ui.js/retest_chat.js/dbg_agents.js/retest_results.jsonl + 03-testing/screenshots/s27 多张 retest 新截图, 正按断点续做评论做 3 FAIL 复测定因, 非假死）; S28(t_4b6efa6d chuyan) todo 待 S27; 无 blocked/gave_up/预算耗尽, 重试 1/5（run#270）。静默观察。
+- [2026-09-28 11:1x tick, 主 agent] S27(t_159f9f4b yuntianming) run#268 于 ~11:02 耗尽 150 步预算 → blocked。主 agent 磁盘独立核验：工作绝大部分真实完成非假完成——05-temp/s27/results.jsonl 112 条全模块真实 UI 结果(BASE 9P/1F, STORE 4P, LLM 6P, RAG 8P, MCP 5P, SKILLS 4P/1F, AGENT 5P/1F, TRACE 4P)，03-testing/screenshots/s27/ 111 张截图，真表单登录铁证(acme_admin_login_form/ok.png)。3 FAIL 待定因：AGENT-02b 多轮续接 reply2 空(正在查)、SKILL-01d md 上传、BASE-01a 409(疑似 harness 重复用户名)。已写精确断点续做评论(禁重跑全量，仅 3 FAIL 定因 + TEST_REPORT_S27.md + 收尾)并 unblock → S27 回 ready 待 dispatcher 重排 run#2。【S27 重试 1/5】。S28(t_4b6efa6d chuyan) todo 待 S27。无其他 blocked/gave_up。静默观察。
+- [2026-09-28 10:47 tick, 主 agent] NORMAL（新链 S26-S28）。S26 done(HEAD 23f8d41 BUG-15 修复+98/98)；S27(t_159f9f4b yuntianming) run#1 自 09:53 running, run_age_h≈0.9 (<3h), pid 3174458 存活(Ssl), 10:43-10:46 持续落盘 05-temp/s27/（agent_run.log + results.jsonl 94 条 + probe_real_llm.py + pyright LSP 10:45 活跃），AGENT 模块 5 PASS/1 FAIL(AGENT-02b 多轮续接 reply2 空, 正在定因), 非假死；S28(t_4b6efa6d chuyan) todo 待 S27。无 blocked/gave_up/预算耗尽，重试 0/5。静默观察（心跳）。
 - [2026-09-28 09:43 tick, 主 agent] NORMAL（新链 S26-S28）。S26(t_c390a1b6 zhangbeihai) running 自 09:11, run_age_h≈0.5 (<3h), pid 3079321 存活(Ssl), 09:40-09:43 持续落盘 05-temp/s26/s26_m8_agents.py/s26_m9_bff_trace.py + 03-testing/dev_probe_s26_{baseline,bff_trace,storage,agents,mcp,rag,skills,llm}.log（10 模块中 8 个已自测出 log，非假死）；HEAD 07866bf（S26 已 commit PUBLIC_AUTH_EXACT 精确匹配修复）；S27/S28 todo 待 S26。无 blocked/gave_up/预算耗尽，重试 0/5。静默观察（心跳）。
 - [2026-09-28 09:25 tick, 主 agent] NORMAL（新链 S26-S28）。S26(t_c390a1b6 zhangbeihai) running 自 09:11, run_age_h≈0.2 (<3h), pid 3079321 存活, 09:09-09:22 持续落盘 05-temp/s26/s26_m2_iam.py + 03-testing/dev_probe_s26_auth.log(72KB) 等真实产出非假死；HEAD 07866bf（S26 已 commit 1 个认证缺陷修复：PUBLIC_AUTH_EXACT 精确匹配）；S27/S28 todo 待 S26。无 blocked/gave_up/预算耗尽，重试 0/5。静默观察（心跳）。
 - [2026-09-28 08:19 tick, 主 agent] NORMAL（终态确认 #117）。128 卡全 done（--json 核验 done=128，non_done=[]，无 S21+ 新卡），重试 0/5；HEAD e303f02 未变（git 核验）；工作树 3 处未提交（PIPELINE.md 心跳 + QA_STANDARD 用户侧修订 + auth.py TEMP-DEBUG 日志，均为用户侧排查遗留，非 worker 产物，不动）；无 worker 进程（ps 核验，仅内核线程）。终态持续，静默。
@@ -230,5 +234,8 @@
 ## 2026-09-26 全量重测轮（用户指令：清空旧任务，dev-team 重新全量测试）
 - S 系列旧任务已归档；登录401根因= .env SEED_ADMIN_PASSWORD 被终端脱敏污染为字面量***，已修复（.env+DB 重置为123456，浏览器真表单200）
 - S26 t_c390a1b6 zhangbeihai 环境基线+全模块接口自测(真实端点禁mock) — **done（2026-09-28）**：98/98 PASS（基线11+M1 11+M2 21+M3 10+M4 11+M5 12+M6 9+M7 7+M8 10+M9 9，全经 webconsole:8080 真实 HTTP）；真实 LLM 34.121.9.233:4000 + 真实 embedding gte-qwen2 dim=3584 实测 ok；agent 真实对话 pong + OpenAI-compat 经 BFF pong；**新发现并修复 BUG-15（P1，nginx 字面量 proxy_pass 不重解析→重建后全 502，改变量式）**；BUG-13/14 修复独立复验 PASS；证据 03-testing/dev_probe_s26_*.log + 02-development/DEV_REPORT_S26.md
-- S27 t_159f9f4b yuntianming 全量浏览器测试(防造假: 真表单登录, 验收grep脚本源码)
-- S28 t_4b6efa6d chuyan 验收(防造假核查+证据交叉)+push
+- S27 t_159f9f4b yuntianming 全量浏览器测试(防造假: 真表单登录, 验收grep脚本源码) — **done（2026-09-28）**：45 PASS / 4 FAIL（收敛 3 真实 BUG：BUG-16 P1 默认块式对话气泡恒空 / BUG-17 P2 skill 上传 422 / BUG-18 P2 不填邮箱建用户 409）；历史 BUG-07/09/10/11 UI 回归全 PASS；防造假合规（grep 零命中，报告 §五）
+- S28 t_4b6efa6d chuyan 验收(防造假核查+证据交叉)+push — **done（2026-09-28，判定 FAIL 打回）**：防造假 3/3 PASS（无造假）；S26 真实端点证据核验 PASS；3 BUG 源码定因独立复核成立；**P1 未闭环 → 不 push**（S26 修复随 S30 轮一次推）；ACCEPTANCE_S28.md + DECISION-029 + RISK-016(vLLM key 需用户轮换)/017
+- S29 t_24b08308 (zhangbeihai) 修复 BUG-16/17/18 + 自测证据（防造假硬规则随卡） — todo
+- S30 t_554ee9cc (yuntianming, parent=S29) 3 BUG UI 复测 + 历史回归 + 防造假自查 → TEST_REPORT_S30 — todo
+- S31 (chuyan) 终审 + 一次 push（S26 修复 + S29 修复 + 全部证据）— 待 S30 PASS 后建卡
