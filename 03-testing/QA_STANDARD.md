@@ -63,7 +63,12 @@ while True:
 ```
 指向它的节点探测：返回 ok=有 Authorization 即通过；若 ok=false（无鉴权头）→ 证明凭据没发出。
 
-## 五、责任与记录
+## 五、工具链（强制，见 skill: qa-toolchain）
+- 浏览器测试一律用 **Playwright**（全局 1.63，chromium 已装）：`NODE_PATH=$HOME/.local/lib/node_modules node e2e/*.js`，模板见 skill `qa-toolchain`
+- 前端单测用 **vitest**，提交前跑 **eslint + prettier**，批量重构用 **jscodeshift/babel**
+- "纯 curl 打接口 + 目测"不达标：UI 操作必须走浏览器，代码质量必须过工具门
+
+## 六、责任与记录
 - 开发：自测证据缺失/造假 → 任务打回并重跑。
 - 测试：浏览器测试缺失（无截图）→ 测试报告无效，打回。
 - 验收：按第二节清单逐项核对，缺一项即打回。
