@@ -86,14 +86,12 @@ def reset_identity() -> None:
 
 PUBLIC_PATHS = {"/healthz", "/"}
 LOGIN_PATHS = ("/api/auth/login",)
-# 公开前缀端点（与 API 侧 middleware.PUBLIC_PREFIXES 对齐）：不经 BFF JWT 鉴权/
-# 不注入 X-Auth-* 签名头，保留客户端 Authorization 头透传（BUG-02 修复：logout
-# 需要原始 bearer 写 access 黑名单；refresh/login 本身凭据即鉴权）。
-PUBLIC_AUTH_PREFIXES = (
-    "/api/auth/login",
-    "/api/auth/refresh",
-    "/api/auth/logout",
-)
+# 公开认证端点（与 API 侧 middleware.PUBLIC_AUTH_EXACT 对齐）：
+# 不经 BFF JWT 鉴权、不注入 X-Auth-* 签名头，保留客户端 Authorization 头透传
+# （BUG-02 修复：logout 需要原始 bearer 写 access 黑名单；refresh/login 本身凭据即鉴权）。
+# 注意：必须精确匹配——logout-all 以 logout 为前缀，若用 startswith 会把 logout-all
+# 误放行（S26 自测发现的同类缺陷，API 侧同样修复）。login 单独走 is_login()。
+PUBLIC_AUTH_EXACT = ("/api/auth/refresh", "/api/auth/logout")
 
 
 def is_public(path: str) -> bool:
@@ -210,6 +208,16 @@ class BFFGateway(ASGIApp):
         if is_login(path):
             return await self._forward(scope, receive, send)
 
+        # 公开认证端点（refresh/logout，S26 修复）：refresh token / access jti 本身即
+        # 凭据，不经 BFF JWT 鉴权直接转发（保留客户端 Authorization 头，_forward 已
+        # 处理不注入签名头）。与 API 侧 middleware.PUBLIC_PREFIXES 对齐（login/refresh/
+        # logout 三个；logout-all 不在内——它走常规 JWT 鉴权 + 签名头）。
+        # 精确匹配（非前缀）：logout-all 以 logout 为前缀，若用 startswith 会误放行。
+        # 修复前：access token 过期时 refresh 死锁（refresh 需 access、access 过期只能
+        # 靠 refresh 续）→ 401 missing access token。
+        if path in PUBLIC_AUTH_EXACT:
+            return await self._forward(scope, receive, send)
+
         # ② 鉴权（BFF-01，DECISION-002）
         token = extract_bearer(headers)
         try:
@@ -260,7 +268,9 @@ class BFFGateway(ASGIApp):
         # API 只信 X-Auth-*（安全不变量不变，请求体 tenant 一律忽略）。
         fwd_headers = [(k, v) for (k, v) in scope.get("headers", [])
                        if k.lower() not in (b"host", b"content-length", b"transfer-encoding")]
-        if not is_login(path) and not path.startswith(PUBLIC_AUTH_PREFIXES):
+        # 签名头注入豁免=与 API 侧 PUBLIC_PREFIXES 严格一致（login/refresh/logout，
+        # 精确匹配——logout-all 走签名头，前缀匹配会误豁免）。
+        if not is_login(path) and path not in PUBLIC_AUTH_EXACT:
             idn = scope["state"]["joker_id"]
             sig = crypto.build_internal_headers(idn["tenant_id"], idn["user_id"], idn["scopes"])
             fwd_headers += [(k.encode(), v.encode()) for k, v in sig.items()]

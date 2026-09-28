@@ -32,7 +32,12 @@ PUBLIC_PATHS = {
     "/docs",
     "/redoc",
 }
-PUBLIC_PREFIXES = (
+# 公开认证端点（与 BFF 侧 PUBLIC_AUTH_EXACT 对齐，S26 起唯一事实源）：
+# 必须精确匹配，不能用 startswith——
+# "/api/auth/logout-all" 以 "/api/auth/logout" 为前缀，若用 startswith 会把
+# logout-all 误判为公开端点而跳过 HMAC 内部鉴权；但 logout-all 需要 auth_context
+# （只由 HMAC 校验 set），于是报 "missing internal auth context"。
+PUBLIC_AUTH_EXACT = (
     "/api/auth/login",      # 登录=公开入口（凭据本身鉴权）
     "/api/auth/refresh",    # refresh token 本身鉴权（有状态，防重放）
     "/api/auth/logout",     # refresh token / access jti 本身鉴权
@@ -44,7 +49,7 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
-        if path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES):
+        if path in PUBLIC_PATHS or path in PUBLIC_AUTH_EXACT:
             return await call_next(request)
 
         if path.startswith("/api/") or path.startswith("/internal/"):
