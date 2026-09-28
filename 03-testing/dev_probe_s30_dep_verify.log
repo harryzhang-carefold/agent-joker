@@ -1,0 +1,37 @@
+### 探测1 ping→pong (marker s30dep_125552)
+TARGET: http://34.121.9.233:4000/v1/chat/completions
+AUTH: Bearer (key present, len=66)
+HTTP: 200 | 1390ms
+RAW: {"id":"chatcmpl-80079c01947e4b15","object":"chat.completion","created":1790571353,"model":"vllm-qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":"Pong! How can I help you today?","refusal":null,"annotations":null,"audio":null,"function_call":null,"reasoning":null},"logprobs":null,"finish_reason":"stop","stop_reason":null,"token_ids":null,"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.27.1-668ce1ce","usage":{"prompt_tokens":13,"total_tokens":24,"completion_tokens":11,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"prompt_text":null,"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+REPLY: Pong! How can I help you today?
+
+### 探测2 数学推理 + 唯一 marker s30dep_125552
+TARGET: http://34.121.9.233:4000/v1/chat/completions
+AUTH: Bearer (key present, len=66)
+HTTP: 200 | 1317ms
+RAW: {"id":"chatcmpl-a5f998e6b8f1717e","object":"chat.completion","created":1790571354,"model":"vllm-qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":"s30dep_125552\n42","refusal":null,"annotations":null,"audio":null,"function_call":null,"reasoning":null},"logprobs":null,"finish_reason":"stop","stop_reason":null,"token_ids":null,"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.27.1-668ce1ce","usage":{"prompt_tokens":47,"total_tokens":62,"completion_tokens":15,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"prompt_text":null,"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+REPLY: s30dep_125552
+42
+
+### SUMMARY
+probe_ping: HTTP 200, 1390ms, reply='Pong! How can I help you today?'
+probe_math: HTTP 200, 1317ms, reply='s30dep_125552\n42'
+DEP_VERIFY: PASS — 真实 vLLM http://34.121.9.233:4000/v1/chat/completions 原始 200 非空响应, 含唯一 marker s30dep_125552 (非 mock)
+{
+  "email_empty_count": {
+    "value": "0",
+    "expected": "0",
+    "pass": true,
+    "err": ""
+  },
+  "email_null_count": {
+    "value": "32",
+    "err": ""
+  },
+  "email_empty_users": {
+    "value": "",
+    "pass": true,
+    "err": ""
+  }
+}
+BUG-18 既有空串 email 归一化 DB 核验: PASS (email='' 行数=0, 期望 0; email IS NULL 行数=32)
