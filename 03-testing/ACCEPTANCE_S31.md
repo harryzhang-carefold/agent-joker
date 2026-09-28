@@ -71,7 +71,7 @@
 | 本 commit（S31 验收） | 本报告 + DELIVERY_REPORT §13 + DECISION-030 + RISKS/STATUS/PIPELINE 回写 |
 
 - **凭据**：`-c credential.helper= -c credential.helper=store -c credential.helper.file=/home/hermes/.git-credentials`（环境坑：$HOME 下为旧 token）；仓库无 `.github/workflows`，无 workflow scope 需求。
-- **push 后远端核验**：见交付结论（ls-remote 输出随卡内 metadata 归档）。
+- **push 后远端核验**：`git -c credential.helper= -c credential.helper=store -c credential.helper.file=/home/hermes/.git-credentials ls-remote origin main` = `026503ca9f48f9f18f20886485321d23927e26c3`，与本地 HEAD 一致。推送范围 `e303f02..026503c`（6 commit，一次 push 成功）。
 - **不入库**：`05-temp/`（诊断脚本/results.jsonl，gitignore 覆盖，符合 S28 口径）。
 
 ---
