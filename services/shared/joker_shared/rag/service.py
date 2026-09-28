@@ -163,7 +163,8 @@ async def create_kb(
     session: AsyncSession, tenant_id: str, user_id: str | None, d: dict
 ) -> dict:
     """建库：校验 embedding 模型（active）→ 固化 embedding_dim（D-C 快照）→
-    动态建独立向量表 rag_chunks_vec_<kb_id>（HNSW 按实际维度）。"""
+    动态建独立向量表 rag_chunks_vec_<kb_id>（HNSW 按实际维度；S32/BUG-19：
+    dim>2000 不建 HNSW 索引——pgvector 硬性上限 2000 维）。"""
     name = (d.get("name") or "").strip()
     if not name:
         raise HTTPException(422, "name is required")
@@ -206,9 +207,30 @@ async def create_kb(
     kb_id = str(uuid.uuid4())
     dim = int(emb[2])
     # 先建向量表（失败不留半截库行）
-    tname = (
-        await session.execute(text("SELECT create_rag_chunks_vec(CAST(:id AS uuid), :dim)"), {"id": kb_id, "dim": dim})
-    ).scalar_one()
+    try:
+        tname = (
+            await session.execute(text("SELECT create_rag_chunks_vec(CAST(:id AS uuid), :dim)"), {"id": kb_id, "dim": dim})
+        ).scalar_one()
+    except Exception as exc:
+        # S32/BUG-19：建向量表失败（如 HNSW 维度超限等数据库错误）→ 回滚事务
+        # 清掉可能已建的半截向量表，返回可读 500（不向前端 toast 泄露 traceback/SQL/参数）。
+        await session.rollback()
+        log.exception("kb vector table create failed (dim=%s, kb=%s)", dim, kb_id)
+        try:
+            await session.execute(text(f"DROP TABLE IF EXISTS {vec_table(kb_id)}"))
+            await session.commit()
+        except Exception:
+            log.exception("kb vector table cleanup failed (kb=%s)", kb_id)
+        # 只取第一行可读错误信息，剥掉 SQLAlchemy/asyncpg 的 "<class '...'>: " 前缀
+        # 及后续 [SQL:...] / [parameters:...] 行（都在 \n 之后），避免泄露给前端 toast。
+        msg = str(exc).split("\n")[0]
+        msg = re.sub(r"^<class '[^']+'>\s*:\s*", "", msg).strip()
+        raw = msg[:160]
+        raise HTTPException(
+            500,
+            f"知识库创建失败：向量表初始化错误（embedding 维度 {dim}）：{raw}。"
+            "若维度超过 2000 将不建 HNSW 索引（顺序扫描检索）。",
+        ) from None
     await session.execute(
         text(
             """INSERT INTO rag_knowledge_bases
@@ -353,9 +375,11 @@ async def reindex_kb(session: AsyncSession, tenant_id: str, user_id: str | None,
             f"updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
     )
-    await session.execute(
-        text(f"CREATE INDEX ON {shadow} USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)")
-    )
+    # S32/BUG-19：HNSW 硬上限 2000 维；>2000 维不建索引（顺序扫描，SQL 天然兼容）
+    if new_dim <= 2000:
+        await session.execute(
+            text(f"CREATE INDEX ON {shadow} USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)")
+        )
     # ② 状态切 reindexing + 记录目标
     await session.execute(
         text(

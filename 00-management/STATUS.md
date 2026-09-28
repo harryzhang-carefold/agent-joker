@@ -11,8 +11,10 @@
 - **终审**：S13 首轮 + S16 迭代 + S19 实测 + **S22 按新 QA 标准打回** + **S24 终审通过（6/6 核对 + 独立复跑铁证，交付）**
 
 ## 当前阻塞
-- **S28 验收 FAIL（2026-09-28）**：S27 新发现 3 个真实产品 BUG 未修复 —— **BUG-16（P1，Agent 默认块式对话模式 AI 气泡恒空）** / BUG-17（P2，Skill 文件上传恒 422）/ BUG-18（P2，不填邮箱建用户恒 409）。QA_STANDARD §三「P0/P1 全关闭」不满足 → 不 push 不交付。S29（zhangbeihai 修复）→ S30（yuntianming 回归）进行中。
-- **RISK-016（用户操作项）**：生产 vLLM API key 已在聊天多次暴露，需轮换 34.121.9.233:4000 key 并同步平台端点配置（S30 回归前）。
+- **BUG-19 轮进行中（2026-09-28，用户真实 UI 报「新增知识库保存报错」）**：主 agent 本地复现定因——3584 维 embedding 模型建库恒 500（pgvector HNSW 索引 2000 维硬上限，`s26-gte-qwen2-real` 3584 维超限）。S32（t_892ebfc3，zhangbeihai 修复）已完成：>2000 维降级顺序扫描 + 可读 500，自测 12/12 PASS + 顺序扫描 EXPLAIN 铁证（`02-development/DEV_REPORT_S32.md`、`03-testing/dev_probe_s32_bug19*.log`）；S33（t_28d8f1f7，yuntianming 复测+回归）todo 等待中；S34（t_801fcd7e，chuyan 终审+push）按链等待。
+- **RISK-019（端点侧环境态，S32 登记）**：外部 3584 维端点 `34.64.61.208:4000` 模型漂移（现服务 1536 维 `gte-Qwen2-1.5B-instruct`，DB 行仍指 3584 维 `gte-qwen2`）——非平台代码缺陷，3584 维文档链路已用 local provider 闭环验证，真实端点链路待 S33 复测时确认。
+- **RISK-016（用户操作项）**：生产 vLLM API key 已在聊天多次暴露，需轮换 34.121.9.233:4000 key 并同步平台端点配置。
+- **S29/S30 轮已收口**：BUG-16/17/18 已修 + S30 复测全 PASS + S31 终审 PASS（代码已 push 远端 6bef164）。
 
 ## 交付结论（2026-09-24，S24 终审，权威）
 - **QA_STANDARD §三 6 项逐项核对 6/6 PASS**；S24 独立复跑铁证（SHA256 重算 + 容器实码 + 全新 key 严格伪鉴权端到端）全通过。

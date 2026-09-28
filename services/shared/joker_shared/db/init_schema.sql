@@ -886,10 +886,15 @@ BEGIN
      )',
     tname, p_dim
   );
-  EXECUTE format(
-    'CREATE INDEX IF NOT EXISTS idx_%s_embedding ON %I USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)',
-    replace(p_kb_id::text, '-', ''), tname
-  );
+  -- S32/BUG-19：pgvector HNSW 硬性上限 2000 维；>2000 维（如 gte-qwen2 3584）
+  -- 不建 HNSW 索引，检索走顺序扫描（ORDER BY embedding <=> q，SQL 天然兼容，
+  -- 单 KB 文档量级可接受）。
+  IF p_dim <= 2000 THEN
+    EXECUTE format(
+      'CREATE INDEX IF NOT EXISTS idx_%s_embedding ON %I USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)',
+      replace(p_kb_id::text, '-', ''), tname
+    );
+  END IF;
   -- 向量表 updated_at 触发器（命名按表名生成，幂等）
   EXECUTE format(
     'DROP TRIGGER IF EXISTS trg_%s_vec_updated ON %I',

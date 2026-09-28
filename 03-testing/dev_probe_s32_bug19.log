@@ -1,0 +1,41 @@
+[0] login acme/admin -> 200 token=yes
+[A] POST /api/rag/kbs (3584-dim real model row, was 500 pre-fix) -> 201 (expect 201) PASS=True
+   body: {"id":"4a858e07-5240-434c-ae22-2e287c66826c","tenant_id":"00000000-0000-0000-0000-000000000002","name":"kb3584_s32578949","description":null,"tag":null,"embedding_model_id":"b13b0706-6a6d-44fc-8912-cdd36fa9372d","embedding_dim":3584,"reranker_model_id":null,"top_k_default":5,"score_threshold":0.3,"recall_top_n":null,"split_strategy_default":"fixed","split_params_default":{"overlap":50,"chunk_size":500},"status":"active","doc_count":0,"created_at":"2026-09-28T07:02:29.485767+00:00","updated_at":"2026-09-28T07:02:29.485767+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":"
+[B] POST /api/rag/kbs (256-dim fallback, HNSW branch) -> 201 (expect 201) PASS=True
+   body: {"id":"732bed7b-f376-4af1-97a9-4104377db0a6","tenant_id":"00000000-0000-0000-0000-000000000002","name":"kb256_s32578949","description":null,"tag":null,"embedding_model_id":"07133829-c8a4-4e94-818b-6cea9c1ca7da","embedding_dim":256,"reranker_model_id":null,"top_k_default":5,"score_threshold":0.3,"recall_top_n":null,"split_strategy_default":"fixed","split_params_default":{"overlap":50,"chunk_size":500},"status":"active","doc_count":0,"created_at":"2026-09-28T07:02:29.500736+00:00","updated_at":"2026-09-28T07:02:29.500736+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":"00
+[B2] POST /api/llm/embeddings (local provider dim=3584) -> 201 (expect 201) PASS=True
+   body: {"id":"163912d2-f997-426d-bea2-85e2a256200c","tenant_id":"00000000-0000-0000-0000-000000000002","name":"s32-local-3584-s32578949","provider":"local","base_url":"local://fallback","model":"","dimensions":3584,"batch_size":32,"status":"active","created_at":"2026-09-28T07:02:29.514426+00:00","updated_at":"2026-09-28T07:02:29.514426+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":"00000000-0000-0000-0000-000000000031","api_key_set":false}
+[E2] POST /api/rag/kbs (local 3584-dim model) -> 201 (expect 201) PASS=True
+   body: {"id":"b2e2845a-d82f-4e4c-addc-52e2edf1f157","tenant_id":"00000000-0000-0000-0000-000000000002","name":"kbl3584_s32578949","description":null,"tag":null,"embedding_model_id":"163912d2-f997-426d-bea2-85e2a256200c","embedding_dim":3584,"reranker_model_id":null,"top_k_default":5,"score_threshold":0.3,"recall_top_n":null,"split_strategy_default":"fixed","split_params_default":{"overlap":50,"chunk_size":500},"status":"active","doc_count":0,"created_at":"2026-09-28T07:02:29.524204+00:00","updated_at":"2026-09-28T07:02:29.524204+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":
+[C] hnsw indexes 3584-real=[] (expect [])
+[C] hnsw indexes 3584-local=[] (expect [])
+[C] hnsw indexes 256=['idx_732bed7bf3764af197a94104377db0a6_embedding(hnsw)'] (expect 1)
+[D1] upload .txt to 256 kb -> 201 (expect 201) PASS=True
+   body: {"id":"43226b75-ac0c-40ca-9c52-48b3b63166da","tenant_id":"00000000-0000-0000-0000-000000000002","knowledge_base_id":"732bed7b-f376-4af1-97a9-4104377db0a6","file_id":"6b8d316c-dde7-487b-91be-74a9f5a640bc","file_name":"s32_s32578949_quartz_z.txt","tag":null,"doc_type":"txt","status":"uploaded","error_message":null,"parse_method":null,"page_count":null,"split_strategy":null,"split_params":null,"chunk_count":0,"created_at":"2026-09-28T07:02:29.603933+00:00","updated_at":"2026-09-28T07:02:29.603933+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":"00000000-0000-0000-0000-0000
+[D2] 256 doc status=ready chunk_count=2 err=None
+[D3] 256 retrieve -> 200 hits=2 marker_found=True PASS=True
+[E3] upload .txt to local-3584 kb -> 201 (expect 201) PASS=True
+   body: {"id":"0a3389e7-8b34-4d05-8969-d34c23d41bf1","tenant_id":"00000000-0000-0000-0000-000000000002","knowledge_base_id":"b2e2845a-d82f-4e4c-addc-52e2edf1f157","file_id":"a399d824-2bab-409f-8001-9445881da411","file_name":"s32_s32578949_zephyr_q.txt","tag":null,"doc_type":"txt","status":"uploaded","error_message":null,"parse_method":null,"page_count":null,"split_strategy":null,"split_params":null,"chunk_count":0,"created_at":"2026-09-28T07:02:31.663927+00:00","updated_at":"2026-09-28T07:02:31.663927+00:00","created_by":"00000000-0000-0000-0000-000000000031","updated_by":"00000000-0000-0000-0000-0000
+[E4] 3584 doc status=ready chunk_count=2 err=None
+[E5] 3584 retrieve -> 200 hits=2 marker_found=True PASS=True
+     hit score=0.652049 content='S32 probe doc. Unique marker: zephyr_quartz_marmoset_L3584_s32578949. The marmoset zephyr quartz exp'
+     hit score=0.612577 content='que marker: zephyr_quartz_marmoset_L3584_s32578949. The marmoset zephyr quartz experiment concluded '
+[F] DELETE kb 4a858e07 -> 200
+[F] DELETE kb b2e2845a -> 200
+[F] DELETE kb 732bed7b -> 200
+[F] DELETE local-3584 embedding model -> 409
+
+==== SUMMARY: 12/12 PASS ====
+   A_3584_create = True
+   B_256_create = True
+   B2_local3584_model = True
+   E2_kb_local3584 = True
+   C_3584_no_hnsw = True
+   C_256_has_hnsw = True
+   D_upload_256 = True
+   D_doc_ready_256 = True
+   D_retrieve_256 = True
+   E_upload_3584 = True
+   E_doc_ready_3584 = True
+   E_retrieve_3584 = True
+RUN = s32578949

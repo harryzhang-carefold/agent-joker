@@ -43,6 +43,12 @@
 | 13 | S13 t_9ec0b5c6 | chuyan | 终审验收+交付：独立 compose 抽验+BUG 核对+4 用户裁定核对+DELIVERY_REPORT | S12 |
 
 ## 监控处理日志（monitor 写入，新条目在最上）
+- [2026-09-28 15:17 tick, 主 agent] NORMAL（心跳，BUG-19 链 S32-S34）。S32(t_892ebfc3 zhangbeihai) running 自 14:02, run_age_h≈1.25 (<3h), pid 3815444 存活(Ssl)；15:06-15:16 持续落盘 05-temp/s32/(15:16 活跃) + dev_probe_s32_bug19_final.py/endpoint.log(15:06) + BUGS.md(15:14) + rag/service.py/init_schema.sql/docker-compose.yml 已改（BUG-19 修复范围，git status 核验），非假死；S33(t_28d8f1f7)/S34(t_801fcd7e) todo 按链等待；无 blocked/gave_up/预算耗尽，S32 重试 0/5；HEAD 6bef164 未变（git 核验）。静默观察。
+- [2026-09-28 14:55 tick, 主 agent] NORMAL（心跳，BUG-19 链 S32-S34）。S32(t_892ebfc3 zhangbeihai) running 自 14:02, run_age_h≈0.83 (<3h), pid 3815444 存活(Ssl)；14:51 持续落盘 03-testing/dev_probe_s32_bug19_seqscan.log(28KB, RESULT top1=1 seqscan=True **PASS=PASS**——顺序扫描降级路径自测通过) + rag/service.py 已改，正是 BUG-19 修复范围，非假死；S33(t_28d8f1f7)/S34(t_801fcd7e) todo 按链等待；无 blocked/gave_up/预算耗尽，S32 重试 0/5；HEAD 6bef164 未变（git 核验）。静默观察。
+- [2026-09-28 14:34 tick, 主 agent] NORMAL（心跳，BUG-19 新链 S32-S34）。S32(t_892ebfc3 zhangbeihai) run#275 自 14:02 running, run_age_h≈0.53 (<3h), 心跳至 14:33 连续活跃非假死；近 40min 持续落盘 03-testing/dev_probe_s32_bug19.py/_run.py/embcheck.py + 已改 rag/service.py + init_schema.sql + docker-compose.yml（正是 BUG-19 修复范围，git status 核验）；S33(t_28d8f1f7)/S34(t_801fcd7e) todo 按链等待；无 blocked/gave_up/预算耗尽，S32 重试 0/5；HEAD 6bef164 未变。静默观察。
+- [2026-09-28 14:12 tick, 主 agent] NORMAL（心跳，BUG-19 新链 S32-S34）。S32(t_892ebfc3 zhangbeihai 修复 BUG-19) 自 14:02 running, run_age_h≈0.17 (<3h), 已落盘真实产出：05-temp/brief_s32.md + 03-testing/dev_probe_s32_embcheck.py + 已改 services/shared/joker_shared/rag/service.py + db/init_schema.sql（git status 核验，正是 BUG-19 修复范围），非假死；S33(t_28d8f1f7)/S34(t_801fcd7e) todo 按链等待；无 blocked/gave_up/预算耗尽，S32 重试 0/5；HEAD 6bef164 未变（git 核验）。静默观察。
+- [2026-09-28 13:49 tick, 主 agent] NORMAL（终态确认 #118）。134 卡全 done（--json 核验 done=134，non_done=[]，无 todo/ready/running/blocked/gave_up，无新卡），重试 0/5；HEAD 6bef164 未变（git 核验，与上轮 S31 终审 commit 一致）；无 worker 进程（ps 核验，仅 8099/8000/8001 常驻 uvicorn）。终态持续，静默。
+- [2026-09-28 13:27 tick, 主 agent] 本轮终审完成（S26-S31 全量重测轮收口）。134 卡全 done（--json 核验 non_done=[]，无 todo/ready/running/blocked/gave_up），重试 0/5。S31(t_0e99f112 chuyan 终审) 13:13 done——磁盘独立核验非假完成：commit 026503c(终审 PASS：防造假 6/6 + BUG-16/17/18 全闭环 + key 一致性 SHA256 独立复核) + 6bef164(push 核验补记)；**push 远端已核实：git ls-remote origin main = 6bef164 = 本地 HEAD（远端与本地一致，非自报）**；00-management/ 工作树干净（git status 无未提交，S31 回写已 commit）；worker 进程无（ps 核验，仅 8099/8000/8001 常驻 + mock LLM + pg idle）。S31 为本轮终审卡 → 发一次性交付消息（后续 tick 静默）。
 - [2026-09-28 13:05 tick, 主 agent] NORMAL（心跳）。S30(t_554ee9cc yuntianming 复测) done——磁盘核验真实非假完成：TEST_REPORT_S30.md(13KB 12:59，整轮判定 PASS：BUG-16/17/18 复测全 PASS + 历史回归无新缺陷 + 截图/vision 证据) + dev_probe_s30_dep_verify.log 12:56。S31(t_0e99f112 chuyan 终审+一次push) 13:02 刚启动 running, run_age_h≈0 (<3h), pid 3598390 存活(Ssl)，尚在读任务上下文（正常）；无 blocked/gave_up/预算耗尽，重试 0/5。HEAD 1ed12a4（S29 修复 commit）。静默观察。
 - [2026-09-28 12:43 tick, 主 agent] NORMAL（心跳）。S29(t_24b08308 zhangbeihai BUG-16/17/18) done 12:4x——磁盘核验真实非假完成：commit 1ed12a4（HEAD，三缺陷修复+前端空邮箱不传）+ DEV_REPORT_S29.md(8.3KB 12:38) + 05-temp/s29/ 证据(probe_bug17/18.py + s29_bug16_chat.js + results.jsonl 7/7) + dev_probe_s29_bug17/18.log + BUGS.md BUG-16/17/18 均标已修(自测铁证)。S30(t_554ee9cc yuntianming 复测) 12:42 刚启动 running, run_age_h≈0 (<3h), pid 3553119 存活(Ssl)，s30 临时目录未建（刚读任务上下文，正常）；S31(t_0e99f112 chuyan 终审) todo 按链等待；无 blocked/gave_up/预算耗尽，重试 0/5。静默观察。
 - [2026-09-28 12:22 tick, 主 agent] NORMAL（心跳）。S29(t_24b08308 zhangbeihai BUG-16/17/18 修复) run#272 自 12:12 running, run_age_h≈0.17 (<3h), pid 3484544 存活(Ssl)，刚启动(尚在读取任务上下文，s29 临时目录未建，正常)；S30(t_554ee9cc)/S31(t_0e99f112) todo 按链等待；无 blocked/gave_up/预算耗尽，S29 重试 0/5。静默观察。
@@ -242,3 +248,10 @@
 - S29 t_24b08308 (zhangbeihai) 修复 BUG-16/17/18 + 自测证据（防造假硬规则随卡） — todo
 - S30 t_554ee9cc (yuntianming, parent=S29) 3 BUG UI 复测 + 历史回归 + 防造假自查 → TEST_REPORT_S30 — todo
 - S31 (chuyan) 终审 + 一次 push（S26 修复 + S29 修复 + 全部证据）— 待 S30 PASS 后建卡
+- [2026-09-28 13:3x, 汇报 cron] 汇报 cron 已自停（S26-S31 全量重测轮全链 done + S31 终审 PASS + push 6bef164 远端核验一致；本 job 3d01c10635c4 已删除）
+
+## 2026-09-28 BUG-19 轮（用户真实 UI 报"新增知识库保存报错"）
+- 根因: rag/service.py:357 无条件 HNSW 索引，PG HNSW 上限 2000 维，gte-qwen2 3584 维超限 → 建库 500（主 agent 本地复现）
+- S32 t_892ebfc3 zhangbeihai 修复(>2000维降级顺序扫描)
+- S33 t_28d8f1f7 yuntianming 复测+回归
+- S34 t_801fcd7e chuyan 终审+push（id 以实际为准）

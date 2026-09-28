@@ -1,0 +1,12 @@
+retrieval SQL result (no HNSW index, 3584 dim):
+  i=1 sim=0.999991
+  i=3 sim=0.999980
+  i=2 sim=0.865365
+EXPLAIN plan:
+  Limit
+    ->  Sort
+          Sort Key: ((embedding <=> '[<3584-dim vec>]'::vector))
+          ->  Seq Scan on t32seqscan v
+
+RESULT top1=1 (expect 1) seqscan=True (expect True)
+PASS=PASS

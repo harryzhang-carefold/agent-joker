@@ -8,7 +8,7 @@
 - **未改任何代码**，BUG 由褚岩派单给章北海修复。
 - **无阻塞性 BUG（核心链路未跑通）**：RAG 建库→上传→解析→切分→向量化→检索、简易/第三方 agent 闭环、trace 全链路、限流 429 均通过（109 PASS + S11 e2e 43/43 佐证），检索 0 命中为自测 fallback embedding 环境产物而非链路中断（见 TEST_REPORT §3-RAG07）。故**不 kanban_block**。
 
-## 缺陷汇总（4 P1 + 4 P2，无 P0）
+## 缺陷汇总（5 P1 + 5 P2，无 P0）
 
 | ID | 严重 | 模块 | 现象 | 影响 | 状态 |
 |----|------|------|------|------|------|
@@ -30,6 +30,7 @@
 | BUG-16 | P1 | Agent 对话（前端 ChatView） | **默认（块式）模式下 Agent 对话 AI 回复气泡恒为空**：`ChatView.vue` 块式路径 `acc.content = d.reply`（:148），但 `finalize()`（:165-172）只拷贝 `tool_calls/citations/session_id`，**从未 `ai.content = acc.content`** → 气泡内容永远为空（SSE 流式路径 `onDelta` 直接写 `ai.content` 故正常）。后端返回完全正常（`POST /api/agents/{id}/chat` 200 + `reply:"pong"` + `error:null`） | **用户可见的核心对话功能在默认模式下不可用**（点发送→气泡空白+loading，无任何错误提示）；S21/S25b 的"浏览器测试"用 in-page fetch 验证过 API 层 200+pong 但**从未核对 UI 气泡渲染**，故此 UI 层缺陷被两层测试同时漏检（正是 QA_STANDARD 要杜绝的"接口全绿、UI 坏"） | **已修（S29，zhangbeihai，t_24b08308）**：`ChatView.vue finalize()` 补 `if (acc.content && !ai.content) ai.content = acc.content`（块式回写，不破坏 SSE/onError）。自测铁证：Playwright 真实表单登录 + 默认块式模式真实 LLM（34.121.9.233）AI 气泡 `textContent`=`pong`（非 API 200），多轮 `pong 2` 同会话续接，SSE 对照无回归；`05-temp/s29/s29_bug16_results.jsonl` 7/7 PASS + 截图 `screenshots/s29/s29bug16_043629_04_block_turn1.png`（vision 独立核验气泡=pong）。 |
 | BUG-17 | P2 | Skills（前端上传） | **Skill 多文件上传按钮 100% 失败（422 `name: Field required`）**：`api/skills.js` `uploadSkill(files)` 只 append `files`，但后端 `POST /api/skills/upload` 要求必填 Form 字段 `name`（`services/api/app/routers/skills.py:72-79` `name: str = Form(...)`） | 用户无法通过 UI「多文件上传」创建任何 skill（上传后弹 422 原始校验报文，体验极差）；内联创建（SKILL-01b）正常，仅上传路径断裂 | **已修（S29，zhangbeihai，t_24b08308）**：后端 `name` 必填→**可选**（`name: str\|None = Form(None)`），缺省默认取首文件名去扩展名（与内联创建 name 语义一致；DECISION 记于 DEV_REPORT_S29 §二）。自测铁证（真实 HTTP 经 8080→BFF→API）：单文件不传 name→201 name 正确落库、多文件→201 file_count=2、显式 name→201、重复 name→409；`03-testing/dev_probe_s29_bug17_skills_upload.log` 全 PASS。 |
 | BUG-18 | P2 | BASE 用户管理（前端+后端） | **UI 新建用户只要不填邮箱就恒 409 `username or email already exists`**：`UsersView.vue:107` 表单初始 `email:''` 且 `onSave` 原样提交 `form.value`（含 `email:""`），而种子/既有 10 个用户 email 已为空串 → 唯一约束 `uq_users_tenant_email UNIQUE(tenant_id,email)`（`init_schema.sql:78-79`）空串互撞 → 任何新用户名都 409 | 租户管理员不填邮箱（UI 常见路径）时**无法创建任何用户**（填全新唯一用户名也 409，用户会误判平台坏了）；填邮箱才能创建。接口层对照：`diag_root_cause.py` A) email=''→409、B) 不传 email 字段→201、C) 唯一 email→201、D) 全新用户名+email=''→409 | **已修（S29，zhangbeihai，t_24b08308）**：后端 create/update 空串 email 归一化为 NULL（PG 下 NULL 互不撞）+ 前端空邮箱不传字段 + 既有空串 email 一次性归一化（`seed.py _normalize_empty_emails`，幂等可重跑）。自测铁证（接口层真实 HTTP）：email=''→201 读回 null、不传 email→201、唯一 email→201、重复 email→409、既有空串归一化（启动日志 `normalize: 1 users`、psql `email=''` 1→0/`IS NULL` 28）、幂等重跑 `UPDATE 0`、PUT email=''→200 读回 null；`03-testing/dev_probe_s29_bug18_users.log` 全 PASS。 |
+| BUG-19 | P1 | RAG 建库（后端） | **3584 维 embedding 模型建知识库恒 500**：`rag/service.py` 建 KB 时经 `init_schema.sql create_rag_chunks_vec` 对每库向量表**无条件** `CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)`，而 PostgreSQL/pgvector HNSW 索引硬性上限 **2000 维**，`s26-gte-qwen2-real`（3584 维）超限 → `column cannot have more than 2000 dimensions for hnsw index` → 建库 500 | 选 3584 维真实生产 embedding 模型的租户**完全无法创建知识库**（RAG 核心链路入口断裂）；上一轮漏测原因：只测 128/256 维模型，未用 3584 维真实模型 | **已修（S32，zhangbeihai，t_892ebfc3）**：按维度分支——`dim <= 2000` 建 HNSW（现状不变）；`dim > 2000` 不建索引，检索走顺序扫描（`ORDER BY embedding <=> q` SQL 天然兼容）；`reindex_kb` 影子表同规则；建向量表失败时回滚 + 返回可读 500（不泄漏 traceback/SQL 给前端 toast）。自测铁证（真实 HTTP 经 webconsole:8080）：3584 维（真实模型行 s26-gte-qwen2-real）建库 **201**（修复前 500）、256 维建库 201 且 HNSW 索引存在（对照分支不回归）、3584 维库**无 HNSW 索引**、3584 库上传→向量化→检索命中（本地 3584 provider，因外部 3584 端点漂移暂不可用，见 RISK-019）、顺序扫描 EXPLAIN 铁证（Seq Scan + top1 正确）；`03-testing/dev_probe_s32_bug19.log` 12/12 PASS + `dev_probe_s32_bug19_seqscan.log` PASS。 |
 
 > S14 修复报告：02-development/DEV_REPORT_S14.md（根因/改动/复验证据）；
 > 复验 probe：05-temp/probe_s14_v2.py（29/29 PASS，run 见 DEV_REPORT §回归）。
@@ -250,6 +251,28 @@
   6. **复现步骤（独立脚本 `05-temp/s25b/s25b_bug11_probe.py`，证据 `s25b_bug11_result.json` + `s25b_strict_raw.jsonl`，铁证 log `03-testing/dev_probe_s25b_bug11_probe.log`）**：宿主起严格伪鉴权（`05-temp/s25b/s25b_strict_pseudoauth.py`，127.0.0.1:9981）→ admin/acme 登录 → 建带 key 节点 → 探测（A）+ 无 key 对照（B）+ 建 agent 对话（C）→ 读 `s25b_bug11_result.json`：`verdict` 六项全 true、`BUG11_OVERALL_PASS=true`。
   7. **判定**：A 项 wire=CORRECT_BEARER 且 ok=true（满足 QA_STANDARD §四 关闭条件）+ A/B 行为正确区分 + 运行时不回归 + 真实端点 ok=true。**BUG-11 关闭。**
 - **S25b 严重度/状态**：P1，**已修复并独立复验 PASS，关闭**（2026-09-24）。详见 `03-testing/TEST_REPORT_S25.md`。
+
+---
+
+## BUG-19（P1）3584 维 embedding 模型建知识库恒 500（HNSW 2000 维硬上限，S32 修复）
+
+- **现象（用户真实 UI 复现，2026-09-28 主 agent 已本地复现 + 定因）**：页面「建库」选 embedding 模型 `s26-gte-qwen2-real`（3584 维）→ 创建 → `POST /api/rag/kbs` 返回 **500**，错误 `column cannot have more than 2000 dimensions for hnsw index`。
+- **根因**：`rag/service.py` 建 KB 调 `create_rag_chunks_vec`（`init_schema.sql`），对每库独立向量表 `rag_chunks_vec_<kb_id>` **无条件** `CREATE INDEX ... USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`；PostgreSQL/pgvector HNSW 索引**硬性上限 2000 维**，3584 维超限 → 建表失败 → 500。
+- **漏测原因**：上一轮测试只用 128/256 维模型建库，未用 3584 维真实生产模型。
+- **S32 修复（zhangbeihai，t_892ebfc3）**：
+  1. `init_schema.sql create_rag_chunks_vec`：HNSW 索引建表语句包进 `IF p_dim <= 2000 THEN ... END IF`——`<=2000` 维建 HNSW（现状不变），`>2000` 维**不建索引**，检索走顺序扫描（`ORDER BY embedding <=> q`，SQL 天然兼容，单 KB 文档量级可接受）。
+  2. `rag/service.py reindex_kb`：影子表同规则（`if new_dim <= 2000` 才建 HNSW），换 3584 维模型重算向量不再撞上限。
+  3. `rag/service.py create_kb`：建向量表失败时**回滚事务 + 清半截向量表**，返回**可读 500**（只取首行错误、剥 `<class '...'>:` 前缀与 `[SQL:...]`/`[parameters:...]` 行、截 160 字符）——不向前端 toast 泄漏 traceback/SQL/参数；并提示「维度超过 2000 将不建 HNSW 索引（顺序扫描检索）」。
+- **自测铁证（真实 HTTP 经 webconsole:8080→BFF→API，urllib 原始响应，禁 in-page fetch）**：
+  - 证据：`03-testing/dev_probe_s32_bug19.log`（脚本 `dev_probe_s32_bug19_final.py`）——**12/12 PASS**：
+    - A) 3584 维（**真实模型行 `s26-gte-qwen2-real`**）建库 → **201**（修复前 = 500）
+    - B) 256 维建库 → 201（HNSW 分支对照）
+    - C) `pg_indexes` 核验：3584 维库（real + local 两库）**无 HNSW 索引**；256 维库 **1 个 HNSW 索引**（`idx_..._embedding(hnsw)`）
+    - D) 256 维库上传 .txt → 201 → doc `status=ready` chunk=2 → 检索 200 命中 2 + 唯一 marker 命中
+    - E) 3584 维库上传 .txt → 201 → doc `status=ready` chunk=2 → 检索 200 命中 2 + 唯一 marker 命中（score 0.65/0.61，top1 正确）
+  - 顺序扫描专项（`dev_probe_s32_bug19_seqscan.log`，脚本 `dev_probe_s32_seqscan.py`）：临时 3584 维表无 HNSW 索引下跑检索 SQL → **EXPLAIN = Seq Scan**（非 Index Scan），top1 = 最相似向量（sim 0.999991，排序正确）→ **PASS**。
+  - **外部 3584 端点状态记录**（`dev_probe_s32_bug19_endpoint.log`）：自测期间 `34.64.61.208:4000` ① 06:41 端点侧故障（HTTP 全断连，容器与宿主均复现）→ ② 06:49 恢复但 `/embeddings` 对 DB 配置 model=`gte-qwen2` 返回 404 → ③ 最终复测确认端点**实际服务模型 `gte-Qwen2-1.5B-instruct`（1536 维）**，与 DB 行的 `gte-qwen2`（3584 维）**漂移**。故 3584 维文档流水线用**本地 3584 维 provider**（`local://fallback`，确定性向量）完成闭环，3584 维真实外部端点链路待端点侧恢复 3584 模型后由 S33 复测（RISK-019）。该漂移是**端点侧环境态**（vLLM 重启换了模型），非平台代码缺陷——建库 201 / 无 HNSW / 顺序扫描检索正确性均与端点无关。
+- **S32 严重度/状态**：P1，**已修复（S32 自测 12/12 + seqscan PASS）**，待 S33 独立复测 + 回归。详见 `02-development/DEV_REPORT_S32.md`。
 
 ---
 

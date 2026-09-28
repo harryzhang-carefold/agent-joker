@@ -1,0 +1,46 @@
+=== BUG-19 外部 3584 端点 (34.64.61.208:4000) 状态记录 — 2026-09-28 S32 自测期间 ===
+
+## 状态1（06:41 UTC，首次自测）：端点侧故障
+   全部 HTTP 请求被丢弃（RemoteDisconnected / 'Server disconnected without sending a response'），
+   自 joker-api 容器与宿主均复现（host_ping: TCP 4000 可达但 HTTP 全断连）。
+   当时 3584 库文档流水线 embedding 报 'Server disconnected'（doc status=failed）。
+
+## 状态1b（06:49-06:51 UTC）：端点恢复但模型名漂移
+   3584 库文档流水线 embedding 报 'HTTPException: 502: embedding endpoint error: HTTP 404'
+   （端点 /embeddings 对 DB 配置的 model='gte-qwen2' 返回 404）。
+
+## 状态3（07:05+ UTC，最终复测）：端点恢复但服务模型=1536 维（漂移确认）
+--- /v1/models + /health（joker-api 容器，unauthenticated）---
+/v1/models 0 HTTP 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579116,"owned_by":"vllm","root":'
+/v1/models 1 HTTP 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579118,"owned_by":"vllm","root":'
+/v1/models 2 HTTP 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579118,"owned_by":"vllm","root":'
+/health 0 HTTP 200 b''
+/health 1 HTTP 200 b''
+/health 2 HTTP 200 b''
+
+
+--- 端点实际服务模型 + 真实 embedding 维度（容器内 Fernet 解密 DB 密文 key，直连 /v1/embeddings）---
+DB row: name=s26-gte-qwen2-real model=gte-qwen2 dimensions=3584
+decrypted key len=0
+endpoint serves: ['gte-Qwen2-1.5B-instruct']
+embeddings dim for served model 'gte-Qwen2-1.5B-instruct' = 1536
+
+CONCLUSION: DB expects model='gte-qwen2' dim=3584; endpoint serves 'gte-Qwen2-1.5B-instruct' dim=1536.
+
+
+--- 宿主侧 TCP/HTTP 复核 ---
+=== from HOST (not container) ===
+GET /v1/models -> 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579128,"owned_by":"vllm","root":"/models/gte-Qwen2-1.5B-instru'
+GET /v1/models -> 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579131,"owned_by":"vllm","root":"/models/gte-Qwen2-1.5B-instru'
+GET /v1/models -> 200 b'{"object":"list","data":[{"id":"gte-Qwen2-1.5B-instruct","object":"model","created":1790579131,"owned_by":"vllm","root":"/models/gte-Qwen2-1.5B-instru'
+TCP connect 34.64.61.208:4000 -> OK (port open)
+
+
+## 结论
+   - 平台代码链路正确：3584 维建库 201（修复前 500）、向量表无 HNSW、顺序扫描检索 SQL 正确、
+     256 维 HNSW 分支不受影响、256/local-3584 全流水线（上传→ready→检索命中）12/12 PASS。
+   - 真实 3584 维端点模型 'gte-qwen2' 不再可用：端点现服务 gte-Qwen2-1.5B-instruct（1536 维），
+     且 DB 中该模型 api_key 为空（解密 len=0）→ 即使端点恢复，embedding 请求也会 404/401。
+   - 属端点侧配置漂移（同 BUG-08 类别：外部 vLLM 端点行为不受平台控制），非平台代码缺陷。
+   - 建议（测试/运维侧）：恢复或更换 3584 维 embedding 端点 + 更新模型名/key 后，
+     用页面 UI 复测『建库(s26-gte-qwen2-real)→上传→检索』闭环（S33/S34 复测轮覆盖）。
