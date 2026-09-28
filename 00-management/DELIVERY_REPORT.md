@@ -367,3 +367,50 @@ S16 交付后用户实测发现 **BUG-07（P1）** 三症状：
 - 残留：OBS-01（P3）/ OBS-02（环境态已缓解，需用户端点侧核查）——不阻塞交付。
 
 > 褚岩（项目经理）终审签字：2026-09-24。
+
+## 13. S28 打回 → S29 修复 → S30 回归 → S31 终审（2026-09-28，本卡权威结论）
+
+### 13.1 链路
+| 阶段 | 卡 | 判定 |
+|---|---|---|
+| S28 全量重测验收 | t_4b6efa6d（chuyan） | **FAIL 打回**：防造假 3/3 PASS（无造假）但发现 3 真实产品 BUG（BUG-16 P1 / 17 P2 / 18 P2）未修复 → P0/P1 未闭环不 push |
+| S29 修复 | t_24b08308（zhangbeihai，commit 1ed12a4） | BUG-16（ChatView finalize 补 ai.content）+ BUG-17（skills 上传 name 可选）+ BUG-18（空串 email 归一化 NULL 三层）；dev_probe + Playwright 自测全 PASS |
+| S30 UI 复测 + 回归 | t_554ee9cc（yuntianming） | **PASS**：3 BUG 独立复测全过（块式气泡 pong / 上传 201 落库 / 不填邮箱 201+重复 409+DB email=''=0）+ S29 波及面回归无新缺陷 + 防造假 7/7 |
+| S31 终审（本卡） | t_0e99f112（chuyan） | **PASS，交付**：独立防造假核查 6/6 + 证据交叉 + 独立复跑铁证（key 一致性 SHA256 一致 + 双 key 真实 200）；一次 push main |
+
+### 13.2 独立复跑铁证（S31，不采信自报）
+- 防造假：S30 全部 12 个脚本 grep `fetch|localStorage` 零代码命中（仅 2 处注释）；12 处 `page.goto` 逐条判读全为登录页入口或登录后站内跳转，无绕登录；3 脚本均真实表单登录（fill 租户/用户名/密码 → click → waitForURL 离开 /login）。
+- 截图独立 vision 核验 5 张（块式气泡 pong / 用户 409 toast / LLM 连通 toast 可用 / skill 上传 201 toast / 不填邮箱已创建），与 TEST_REPORT_S30 描述一致。
+- 真实 LLM 34.121.9.233:4000 原始 200（1390ms/1317ms）+ 唯一 marker `s30dep_125552` 回显 + 算术 42（非 mock/缓存）：`dev_probe_s30_dep_verify.log`。
+- **key 一致性核对**（S30 附注要求的 S31 项）：`deploy/.env` LLM_FALLBACK_API_KEY（len=66）与 joker-api 容器 env SHA256 前 8 位一致（52833b06），双 key 分别真实请求均 HTTP 200 → push 时点无环境漂移。
+- DB 归一：psql `email=''` 行数=0（期望 0）、`IS NULL`=32；api 启动日志 `BUG-18 normalize: 1 users`。
+
+### 13.3 缺陷台账（本轮收口）
+BUG-16/17/18（S27 发现）全部修复并复测 PASS；连同 BUG-13/14/15（S26 修复）→ **P0=0、P1 全关、P2 全关**。BUGS.md 无新增未闭环项。
+
+### 13.4 Push 记录
+- push 前远端 main = `e303f02`；一次推送范围 = e303f02 之后全部本地 commit：`07866bf`（S26/BUG-13-14）→ `23f8d41`（S26/BUG-15）→ `a32314e`（S28 证据）→ `1ed12a4`（S29 修复）→ `45abf1b`（S30 证据）→ S31 验收 commit（含本报告 + ACCEPTANCE_S31）。
+- 凭据：显式 `-c credential.helper= -c credential.helper=store -c credential.helper.file=/home/hermes/.git-credentials`（$HOME 下为旧 token 的环境坑）；无 .github/workflows，无 workflow scope。
+- 不入库：`05-temp/`（脚本/results.jsonl，gitignore 覆盖）。
+
+### 13.5 QA 证据清单（供用户抽查，QA_STANDARD 第四节）
+- 开发自测：`03-testing/dev_probe_s29_bug17_skills_upload.log`（A-D 全 PASS）/ `dev_probe_s29_bug18_users.log`（A-G 全 PASS + 启动日志 + psql + 幂等重跑）/ BUG-16 自测 `05-temp/s29/s29_bug16_results.jsonl` 7/7 + commit 1ed12a4 内 7 张截图；S26 轮 `dev_probe_s26_*.log`（10 张，98/98）。
+- 测试报告：`03-testing/TEST_REPORT_S30.md`（整轮 PASS）+ `ACCEPTANCE_S28.md`（打回依据）+ `ACCEPTANCE_S31.md`（本卡终审）。
+- 浏览器结果：`05-temp/s30/results.jsonl`（25 条，24 PASS + 1 条 harness 时序误判已快速轮询复跑 PASS）；截图 22 张 `03-testing/screenshots/s30/`（关键张：`s30bug16_045107_04_block_turn1.png` 气泡 pong / `s30reg_045142_user_dup409.png` 409 toast / `s30llm_045405_llm_test_toast.png` 连通可用）。
+- 依赖验证：`03-testing/dev_probe_s30_dep_verify.log`（真实 LLM 原始 200 + 唯一 marker + DB 归一核验）。
+- BUG 台账：`03-testing/BUGS.md`（18 BUG 全闭环）。
+
+### 13.6 剩余风险清单（交付后跟踪，不阻塞）
+| ID | 风险 | 等级 | 说明 / 用户操作 |
+|---|---|---|---|
+| RISK-016 | 用户生产 vLLM（34.121.9.233:4000）key 已聊天多次明文暴露 | 高 | **用户操作**：轮换 vLLM 服务端 `--api-key`；轮换后同步平台 `platform-fallback-llm` 端点 key（UI 编辑，Fernet 加密）+ `deploy/.env`，并复跑连通性（S31 push 时点一致性已核对通过） |
+| RISK-018 | key 轮换后 .env 与平台端点 key 再次失配 | 中 | 轮换操作后按 RISK-016 同步 + 复跑连通性 |
+| OBS-01 | 限流 QPS 敏感 | P3 | 生产按实际 QPS 调 `RATE_LIMIT_*` |
+| OBS-02 | 真实 LLM 端点 401（环境态，已缓解） | 低 | 端点侧抖动时核查 worker `--api-key`；平台 401 结构化判定 + fallback 兜底 |
+| — | 管理员与租户 admin 同密码（SEED_ADMIN_PASSWORD 口径） | 低 | 生产首登后改密（PROD_DEPLOY.md 已提示） |
+| — | 无独立 embedding/vision 模型（27B 纯文本） | 低 | 本地 fallback embedding 兜底；接真实模型自动生效 |
+
+### 13.7 交付结论（S31 终审权威）
+**判定：终审通过，交付。** QA_STANDARD §三 验收条件全满足（防造假 6/6 + 证据交叉 + P0/P1 全关 + 独立复跑铁证）；远端 main 已同步至 S31 验收 commit（一次 push，ls-remote 核验见卡内 metadata）。
+
+> 褚岩（项目经理）终审签字：2026-09-28。

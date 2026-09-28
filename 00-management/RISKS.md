@@ -12,4 +12,5 @@
 | OBS-01 | 限流 QPS 敏感（多登录/高并发下 refresh 轮换与 429 边界） | P3 | OPEN | 生产按实际 QPS 调 `RATE_LIMIT_*`；功能不受阻（S14/S15 已定位口径） |
 | OBS-02 | 真实 LLM 端点 34.121.9.233:4000 key 401（端点侧 worker key 配置抖动，环境态非平台缺陷） | 低 | OPEN（已缓解） | S21/S23 持续 401 → S25 真实 key 探测 ok=true 已恢复；若再抖动需用户端点侧核查 worker `--api-key` 一致性；平台侧 401 结构化判定 + mock/本地 fallback 兜底，无需改代码 |
 | RISK-016 | **用户生产 vLLM（34.121.9.233:4000）API key 已在聊天中多次明文暴露，凭据视为已泄露** | 高 | OPEN（待用户轮换） | **用户操作**：轮换 vLLM 服务端 `--api-key`；换完更新平台 `platform-fallback-llm` 端点 key（UI 编辑端点，Fernet 加密存储）；S30 回归前完成，避免轮换后 401 与 OBS-02 混淆 |
-| RISK-017 | S27 发现 3 个产品缺陷（BUG-16 P1 / 17 P2 / 18 P2）未修复，默认对话模式等用户可见功能断裂 | 高 | OPEN（S29 修复中） | S29（zhangbeihai）修复 + 自测证据 → S30（yuntianming）UI 复测 + 回归 → chuyan 终审；P1 未闭环前不 push 不交付 |
+| RISK-017 | S27 发现 3 个产品缺陷（BUG-16 P1 / 17 P2 / 18 P2）未修复，默认对话模式等用户可见功能断裂 | 高 | **CLOSED（S31 终审 2026-09-28）** | S29 修复 + S30 独立复测全 PASS + S31 终审证据交叉确认；BUG-16/17/18 全闭环，代码已 push 远端 |
+| RISK-018 | 生产 vLLM key 轮换后，`deploy/.env` 与平台 `platform-fallback-llm` 端点 key 可能再次失配（401/OBS-02 混淆） | 中 | OPEN（跟踪） | S31 push 时点已核对 `.env` 与容器 env key 一致性（SHA256 一致 + 双 key 真实 200）；用户轮换 vLLM key 后须同步更新 `.env` + 平台端点 key（Fernet 加密存储），并复跑连通性 |

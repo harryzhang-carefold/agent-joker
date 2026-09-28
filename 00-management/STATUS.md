@@ -33,13 +33,18 @@
 - watchdog cron 已收口自删。
 
 ## 当前风险（交付后跟踪，不阻塞）
+- **RISK-016 用户生产 vLLM（34.121.9.233:4000）key 已多次明文暴露（高）**：**用户操作**——轮换 vLLM 服务端 `--api-key`，轮换后同步平台 `platform-fallback-llm` 端点 key（UI 编辑，Fernet 加密）+ `deploy/.env`，复跑连通性（S31 push 时点一致性已核对通过，无漂移）。
+- **RISK-018（新增，中）**：key 轮换后 `.env` 与平台端点 key 可能再次失配 → 按 RISK-016 同步 + 复跑连通性。
 - **OBS-01 限流 QPS 敏感（P3）**：多登录/高并发下 refresh 轮换与 429 边界敏感；生产按实际 QPS 调 `RATE_LIMIT_*`。
-- **OBS-02 真实 LLM 端点 34.121.9.233:4000 key 401（环境态，已缓解）**：S21/S23 持续 401 → S25 真实 key 探测 ok=true 已恢复；若再抖动需用户端点侧核查 worker `--api-key` 一致性；平台侧无需改代码（401 结构化判定 + mock/本地 fallback 兜底）。
+- **OBS-02 真实 LLM 端点 34.121.9.233:4000 key 401（环境态，已缓解）**：S21/S23 持续 401 → S25 真实 key 探测 ok=true 已恢复；S31 时点双 key（.env/容器 env）真实请求均 200；若再抖动需用户端点侧核查 worker `--api-key` 一致性；平台侧无需改代码（401 结构化判定 + mock/本地 fallback 兜底）。
 - 无独立 embedding/vision 模型（27B 纯文本）→ 本地 fallback embedding 兜底；接真实模型自动生效。
 - 平台管理员密码=SEED_ADMIN_PASSWORD（与租户 admin 同密码，任务要求口径），生产首登后应改密（PROD_DEPLOY.md 已提示）。
 - RISK-003（BRIEF 两处歧义，已按双通道裁定实现）待用户最终确认（不阻断）。
 
 ## 最近更新
+- 2026-09-28：**S31 终审通过，交付 + 一次 push（本卡 t_0e99f112）**。S30 PASS 后独立终审（不采信自报）：防造假核查 6/6 PASS（S30 12 脚本 grep fetch/localStorage 零代码命中、12 处 goto 逐条判读全为登录后站内跳转、5 张截图独立 vision 核验与报告一致、真实 LLM 34.121.9.233 原始 200 + 唯一 marker s30dep_125552、S29 dev_probe 覆盖全部修改接口）；S29/S30 证据交叉覆盖 BUG-16/17/18 全部修复点 + 波及面回归无新缺陷；P0/P1 全关；key 一致性独立复核（.env 与容器 env SHA256 一致 + 双 key 真实 200）。**一次 push main**：e303f02 之后全部 commit（07866bf S26/BUG-13-14 → 23f8d41 S26/BUG-15 → a32314e S28 证据 → 1ed12a4 S29 修复 → S30 证据 → S31 验收），ls-remote 核验同步。验收报告 `03-testing/ACCEPTANCE_S31.md` + DELIVERY_REPORT §13 + DECISION-030 + RISK-017 关闭/新增 RISK-018。遗留（不阻塞）：RISK-016 用户轮换 vLLM key、OBS-01/02、管理员同密码、无独立 embedding/vision。
+- 2026-09-28：S29 修复（zhangbeihai，commit 1ed12a4）：BUG-16 ChatView finalize 补 ai.content + BUG-17 skills 上传 name 可选（默认首文件名）+ BUG-18 空串 email 归一化 NULL（后端 create/update + 启动幂等迁移 + 前端空邮箱不传）；dev_probe_s29_bug17/18 全 PASS + BUG-16 Playwright 真实表单登录+真实 LLM 块式气泡=pong 7/7。
+- 2026-09-28：S30 UI 复测 + 回归（yuntianming）整轮 **PASS**：3 BUG 独立复测全过（块式气泡 pong 非 API 200 / 单多文件上传 201 落库 name 正确 / 不填邮箱 201 + 重复 409 + DB email=''=0 归一）+ S29 波及面回归无新缺陷 + 防造假 7/7；真实 LLM 原始 200 + 唯一 marker s30dep_125552；截图 22 张 + results.jsonl 25 条（1 条 harness 时序误判已复跑 PASS）。
 - 2026-09-28：**S28 全量重测验收 FAIL 打回（本卡 t_4b6efa6d）**。防造假核查 3/3 PASS（grep 28 个 S27 脚本 fetch/localStorage 零命中；goto 24 处逐条判读全部登录后站内跳转；5 张截图独立 vision 核验与报告步骤一致；S26 真实端点 34.121.9.233/34.64.61.208 原始 200 响应无 mock 冒充）；S27 发现 3 个真实产品 BUG（BUG-16 P1 / 17 P2 / 18 P2）源码定因独立复核全部成立 → QA_STANDARD §三「P0/P1 全关」不满足，不 push。建 S29（zhangbeihai 修复）/ S30（yuntianming 回归）。验收报告 `03-testing/ACCEPTANCE_S28.md` + DECISION-029 + RISK-016/017。遗留：用户需轮换 vLLM key（已多次暴露）。
 - 2026-09-24：**S24 终审通过，项目交付**。QA_STANDARD §三 6/6 PASS + 独立复跑铁证（SHA256 重算 / 容器实码 Bearer×1 掩码×0 / 全新 key 严格伪鉴权 A ok=true wire 逐字节 CORRECT_BEARER + B NO_HEADER）；DELIVERY_REPORT §12（含 QA 证据清单）+ DECISION-028（新 QA 标准）落盘；代码推送远端 origin。
 - 2026-09-24：S25b 回归 **PASS**（yuntianming 独立复验，测试自定 key）：BUG-11 A/B/C/D 全 PASS（A 探测 ok=true + wire sha256("Bearer "+key) 逐字节；B 无 key NO_HEADER/ok=false；C agent 运行时 200+pong；D 真实端点 ok=true）+ BUG-10/09 无回归 + 9 模块冒烟 14/14 + DEP_VERIFICATION 刷新 + BUGS.md BUG-11 关闭。
