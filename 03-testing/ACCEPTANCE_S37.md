@@ -107,7 +107,7 @@
 ## 六、交付与 push
 
 - **PASS 放行**，一次 push main：S36 代码变更（4d179da，zhangbeihai 已 commit）+ S35 证据（TEST_REPORT_S35 + 47 张截图）+ 本验收报告 + BUGS/RISKS/PIPELINE/STATUS 回写。**不 push 05-temp**（.gitignore 排除）。
-- 远端核验：push 前 `git ls-remote origin main` = `bf8b29e49feaa9ea6c39aa4f3122ee16fddafb37`（= 本地 HEAD 上一态 S34 收口 commit，一致）；push 后以 ls-remote 新值为准（见 STATUS.md 回写）。
+- 远端核验：push 前 `git ls-remote origin main` = `bf8b29e49feaa9ea6c39aa4f3122ee16fddafb37`（= 本地 HEAD 上一态 S34 收口 commit，一致）；**push 后 `git ls-remote origin main` = `5d741a869e9266900a8b787eb5183b1f1a5a41be` = 本地 HEAD（5d741a8），远端与本地一致（非自报）**。
 
 ## 七、遗留（不阻塞）
 
