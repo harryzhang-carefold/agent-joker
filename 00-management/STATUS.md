@@ -2,8 +2,8 @@
 
 > 当前状态快照。每次任务完成后由褚岩更新。
 
-- **项目阶段**：**全量重测轮验收 FAIL 打回（2026-09-26 用户下令重测：S26 自测 98/98 + S27 浏览器测试 45PASS/4FAIL → S28 终审防造假核查通过但发现 3 个真实产品 BUG 未修 → 建 S29 修复 / S30 回归）**
-- **总体进度**：设计 100%；开发 100%（S01..S11 + S14 + S17 + S20 + S23a + S25a）；测试 100%（S12 146 项 + S15 40 项 + S18 41 项 + S21 浏览器全功能 + S23 回归 + S25b 回归 PASS）；终审 100%（S13 首轮 + S16 迭代 + S19 实测 + S22 打回 + S24 终审通过）
+- **项目阶段**：**上传文档报错轮闭环（2026-09-29：S35 配置修复+1536 维真实链路 PASS → S36 retry 202+UI toast → S37 终审 PASS 交付 + push）；全量重测轮/BUG-19 轮均已收口**
+- **总体进度**：设计 100%；开发 100%（S01..S11 + S14 + S17 + S20 + S23a + S25a + S32 + S36）；测试 100%（S12 146 项 + S15 40 项 + S18 41 项 + S21 浏览器全功能 + S23 回归 + S25b 回归 PASS + S33 BUG-19 复测 + S35 1536 维真实链路）；终审 100%（S13 首轮 + S16 迭代 + S19 实测 + S22 打回 + S24 终审通过 + S34 BUG-19 终审 + S37 上传文档报错轮终审）
 - **产品**：100%（FEATURES 57 功能点 + FLOW_DIAGRAMS 21 图，定稿）
 - **技术设计**：100%（ARCHITECTURE 9 章 + DB_DESIGN 34 表 + DECISIONS 001..028）
 - **开发**：S01..S11 全 DONE + S14 迭代修复 6 个 BASE 缺陷 DONE + S17 BUG-07 DONE + S20 BUG-08 排查/前端修复 DONE + S23a BUG-11/10/09/12 修复 DONE + S25a BUG-11 探测链路 bearer 前缀修复 DONE
@@ -11,8 +11,9 @@
 - **终审**：S13 首轮 + S16 迭代 + S19 实测 + **S22 按新 QA 标准打回** + **S24 终审通过（6/6 核对 + 独立复跑铁证，交付）**
 
 ## 当前阻塞
+- **上传文档报错轮闭环（2026-09-29，用户真实 UI 报「RAG 上传文档报错」）**：根因 = embedding 端点 `34.64.61.208:4000` 模型漂移（`gte-qwen2`/3584 → 仅 `gte-Qwen2-1.5B-instruct`/1536）→ 向量化 404 → 文档 failed。S35 配置修复 + 1536 维真实链路全闭环（UI 改 DB 行 → 连通性 200 ok=true dim=1536 → 建库 201 → txt+pdf 2×201 ready 4.5s → 检索 0.694243/0.619924 命中 → psql HNSW 索引 + Index Scan 铁证 → 删库 200）→ S36 failed 文档 retry 改进（retry 端点 202 + 前端 toast 成功/失败，真实 HTTP 14/14）→ **S37 终审 PASS 交付**（不采信自报独立核查：S35 防造假 5/5 + 原始响应逐字 + S36 14 日志 + 代码 diff + 容器实码 + **本终审独立复跑 202→ready→409→404→检索 0.890359**，`03-testing/ACCEPTANCE_S37.md`），已一次 push main（4d179da + S35/S37 证据）。
 - **BUG-19 轮闭环（2026-09-28，用户真实 UI 报「新增知识库保存报错」）**：3584 维 embedding 建库恒 500（pgvector HNSW 2000 维硬上限）。S32 修复（>2000 维降级顺序扫描 + 可读 500，自测 12/12）→ S33 独立复测 + 回归 PASS（19/20，唯一 FAIL=测试脚本轮询缺陷已定因修正复测 8/8）→ **S34 终审 PASS 交付**（防造假 6/6 + 证据交叉 + 独立复跑铁证，`03-testing/ACCEPTANCE_S34.md`），已一次 push main。
-- **RISK-019（端点侧环境态，S32 登记，S33 复核仍漂移）**：外部 3584 维端点 `34.64.61.208:4000` 模型漂移（现服务 1536 维 `gte-Qwen2-1.5B-instruct`，DB 行仍指 3584 维 `gte-qwen2`）——非平台代码缺陷，3584 维文档链路已用 local provider 闭环验证（S33 证据），真实端点链路待端点恢复后补测。
+- **RISK-019（端点侧环境态，S32 登记；S35 已按更新 DB 行配置路径缓解 2026-09-29）**：外部端点 `34.64.61.208:4000` 模型漂移（现仅服务 1536 维 `gte-Qwen2-1.5B-instruct`）——非平台代码缺陷。S35 已将 DB 行 `s26-gte-qwen2-real` 更新为 1536 维配置并全链路闭环（1536 维真实端点可用）；端点仍不服务 3584 维 gte-qwen2，3584 维真实端点链路待端点恢复后补测（S32/S33 已用 local provider 闭环）。
 - **RISK-016（用户操作项）**：生产 vLLM API key 已在聊天多次暴露，需轮换 34.121.9.233:4000 key 并同步平台端点配置。
 - **S29/S30 轮已收口**：BUG-16/17/18 已修 + S30 复测全 PASS + S31 终审 PASS（代码已 push 远端 6bef164）。
 
@@ -32,6 +33,7 @@
 - 迭代 3 卡链 S14(t_437c008e zhangbeihai 修复) → S15(t_dfb336b3 yuntianming 回归) → S16(t_4a73489d chuyan 终审) 已全部完成。
 - 用户实测修复轮 3 卡链 S17(t_dcd84e35 zhangbeihai BUG-07 修复) → S18(t_d939b9e2 yuntianming 回归) → S19(t_cb525a29 chuyan 终审+推远端) 已全部完成。
 - 新 QA 标准轮：S22(t_0bef5b8e chuyan 终审打回) → S23a(zhangbeihai 修复) → S23(t_19433d9a yuntianming 回归 FAIL) → S25a(t_342e0950 zhangbeihai 修复) → S25b(t_5a90dc0b yuntianming 回归 PASS) → **S24(t_ff562cb9 chuyan 终审通过，本卡)** 全部完成。
+- 上传文档报错轮（2026-09-29）：S35(t_c74de813 yuntianming 配置修复+1536 维真实链路 PASS) → S36(t_c343be35 zhangbeihai retry 202+UI toast) → **S37(t_62ee7dd0 chuyan 终审 PASS + 一次 push)** 全部完成。
 - watchdog cron 已收口自删。
 
 ## 当前风险（交付后跟踪，不阻塞）
@@ -44,6 +46,7 @@
 - RISK-003（BRIEF 两处歧义，已按双通道裁定实现）待用户最终确认（不阻断）。
 
 ## 最近更新
+- 2026-09-29：**S37 终审通过，上传文档报错轮交付 + 一次 push（本卡 t_62ee7dd0）**。不采信 S35/S36 自报，独立核查：S35 防造假 5/5 PASS（UI 脚本 grep `fetch(`/`localStorage` 零代码命中、15 处 `page.goto` 逐条判读全为登录入口/登录后站内跳转、四轮真实表单登录、47 张截图与报告对应、2 张关键截图独立 vision 核验——06 连通性 toast「ok: model=gte-Qwen2-1.5B-instruct dim=1536 in 1228ms」+ 29 两文档 ready）；S35 原始 API 响应逐字核对（编辑 200 / 连通性 200 ok=true / 建库 201 dim=1536 / 上传 2×201 / 检索 top1 0.694243+0.619924 / 删库 200 / psql HNSW 索引 + Index Scan EXPLAIN 铁证）；S36 14 份真实 HTTP 日志逐份独立读取（failed→retry 202→ready，ready/splitting 409，missing 404，检索 0.770322）+ 代码 diff 最小化审查 + **容器实码独立核验**（joker-api 202 路由 L235/L246 命中、joker-webconsole bundle `KbDetailView-CRrQ3Qrg.js` 含「重试失败」/「已重新入队（202」，api/webconsole=s36 镜像均 healthy）+ **本终审独立复跑铁证**（`05-temp/s37_rerun.py` 真实全链路 8080→bff→api→pg：造 failed → retry 202 → 修端点 → ready chunks=5 → 409(ready) → 404(missing) → 检索 top1 0.890359 唯一 marker s37x_d5109a1b54 命中）。S35 报告「后端无 /retry 接口」表述瑕疵经核实更正（端点自初始 commit 存在，实际差距=200→202 + 前端无错误处理），不构成造假、不影响 S35 整轮 PASS。验收报告 `03-testing/ACCEPTANCE_S37.md` + DECISION-032。**一次 push main**：4d179da（S36 修复）+ S35 证据（TEST_REPORT_S35 + 47 截图）+ S37 验收 + RISKS/PIPELINE/STATUS 回写，ls-remote 核验同步（不推 05-temp）。遗留（不阻塞）：RISK-019 端点漂移（1536 维已闭环，3584 维真实端点链路待端点恢复补测）；OBS P3×2（KB 列表无自动轮询、retry UI 点击截图未跑）；既有行为 delete_embedding 引用检查不过滤软删库。
 - 2026-09-28：**S34 终审通过，BUG-19 轮交付 + 一次 push（本卡 t_801fcd7e）**。不采信 S32/S33 自报，独立核查：防造假 6/6 PASS（全脚本 grep `fetch(`/`localStorage` 零代码命中、15 处 `page.goto` 逐条判读全为登录入口或登录后站内跳转、38 张截图与报告逐条对应、3 张关键截图独立 vision 核验）；证据交叉（S32 自测 12/12 × S33 复测 19/20+8/8 × 本终审独立复跑：重连 PG 复核索引铁证——3584 库仅 pkey/256 库 1 个 hnsw，且两库已软删+向量表 DROP 与清理时序自洽；独立 grep joker-api 日志 `reindex done kb=5765c26b…(dim=256)` 与复测 RUN 一致；独立 grep 容器实码含 S32 三处修复）；3584 维证据为真实端点原始 201/200（响应体逐字核对），文档链路 local 闭环已如实记录（RISK-019 端点漂移，非造假）。初轮 reindex FAIL 定因复核成立（测试脚本未 reload 读陈旧行，非产品缺陷）。验收报告 `03-testing/ACCEPTANCE_S34.md` + DECISION-031。**一次 push main**：fe1cb5a（S32 修复）+ S33 证据 + S34 验收，ls-remote 核验同步。遗留（不阻塞）：RISK-019 端点漂移待端点恢复后补测真实端点链路；BUG-20（P3 UX 观察）KB 列表 reindex 状态无自动刷新；既有行为 delete_embedding_model 软删引用 409。
 - 2026-09-28：**S31 终审通过，交付 + 一次 push（本卡 t_0e99f112）**。S30 PASS 后独立终审（不采信自报）：防造假核查 6/6 PASS（S30 12 脚本 grep fetch/localStorage 零代码命中、12 处 goto 逐条判读全为登录后站内跳转、5 张截图独立 vision 核验与报告一致、真实 LLM 34.121.9.233 原始 200 + 唯一 marker s30dep_125552、S29 dev_probe 覆盖全部修改接口）；S29/S30 证据交叉覆盖 BUG-16/17/18 全部修复点 + 波及面回归无新缺陷；P0/P1 全关；key 一致性独立复核（.env 与容器 env SHA256 一致 + 双 key 真实 200）。**一次 push main**：e303f02 之后全部 commit（07866bf S26/BUG-13-14 → 23f8d41 S26/BUG-15 → a32314e S28 证据 → 1ed12a4 S29 修复 → S30 证据 → S31 验收），ls-remote 核验同步。验收报告 `03-testing/ACCEPTANCE_S31.md` + DELIVERY_REPORT §13 + DECISION-030 + RISK-017 关闭/新增 RISK-018。遗留（不阻塞）：RISK-016 用户轮换 vLLM key、OBS-01/02、管理员同密码、无独立 embedding/vision。
 - 2026-09-28：S29 修复（zhangbeihai，commit 1ed12a4）：BUG-16 ChatView finalize 补 ai.content + BUG-17 skills 上传 name 可选（默认首文件名）+ BUG-18 空串 email 归一化 NULL（后端 create/update + 启动幂等迁移 + 前端空邮箱不传）；dev_probe_s29_bug17/18 全 PASS + BUG-16 Playwright 真实表单登录+真实 LLM 块式气泡=pong 7/7。
