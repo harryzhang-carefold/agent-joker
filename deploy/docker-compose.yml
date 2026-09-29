@@ -91,7 +91,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.api
-    image: agent-joker-api:s32
+    image: agent-joker-api:s36
     container_name: joker-api
     depends_on:
       pg:
@@ -158,7 +158,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.webconsole
-    image: agent-joker-webconsole:s29
+    image: agent-joker-webconsole:s36
     container_name: joker-webconsole
     depends_on:
       bff:

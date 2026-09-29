@@ -1,0 +1,1 @@
+{"ts": "2026-09-29T15:44:18+0800", "method": "POST", "url": "http://localhost:8080/api/rag/kbs/e1a323cf-e0cf-456a-a9f3-067f7bfbf006/docs/44dad37e-d751-44fe-a352-eab2176aae63/retry", "request_body": null, "status": 404, "response_body": {"detail": "doc not found: 44dad37e-d751-44fe-a352-eab2176aae63"}}

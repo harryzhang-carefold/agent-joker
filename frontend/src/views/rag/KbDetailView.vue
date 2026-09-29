@@ -150,9 +150,14 @@ async function onResplitConfirm() {
   } catch (e) {} finally { saving.value = false }
 }
 async function onRetry(row) {
-  await api.retryDoc(kbId, row.id)
-  ElMessage.success('已重新入队')
-  loadDocs()
+  try {
+    const res = await api.retryDoc(kbId, row.id)
+    ElMessage.success(`已重新入队（202，当前状态 ${res?.data?.status || row.status}）`)
+    loadDocs()
+    setTimeout(loadDocs, 2000)
+  } catch (e) {
+    ElMessage.error(`重试失败：${e?.response?.data?.detail || e?.message || '未知错误'}`)
+  }
 }
 async function onDeleteDoc(row) {
   try {

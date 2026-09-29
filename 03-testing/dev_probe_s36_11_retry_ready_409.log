@@ -1,0 +1,1 @@
+{"ts": "2026-09-29T15:44:18+0800", "method": "POST", "url": "http://localhost:8080/api/rag/kbs/e1a323cf-e0cf-456a-a9f3-067f7bfbf006/docs/11586013-c7b7-4291-b96f-f14ecfeed6d6/retry", "request_body": null, "status": 409, "response_body": {"detail": "only failed docs can be retried (status=ready)"}}

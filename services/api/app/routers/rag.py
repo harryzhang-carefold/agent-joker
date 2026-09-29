@@ -12,7 +12,7 @@ scope 门禁（与 init_schema 平台级 scope 对齐）：
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import auth_context, db_session, require_scope
@@ -232,16 +232,18 @@ async def delete_doc(
     return await rag.delete_doc(session, auth["tenant_id"], kb_id, doc_id)
 
 
-@router.post("/kbs/{kb_id}/docs/{doc_id}/retry")
+@router.post("/kbs/{kb_id}/docs/{doc_id}/retry", status_code=202)
 async def retry_doc(
     kb_id: str,
     doc_id: str,
     auth: dict = Depends(auth_context),
     session: AsyncSession = Depends(db_session),
 ):
-    """failed 文档重试（状态回 uploaded 重新入队）。"""
+    """S36：failed 文档重试（状态回 uploaded 重新入队，复用现有 worker 从 parsing 重跑）。
+    202 + doc 当前状态（异步流水线，GET /kbs/{id}/docs/{doc_id} 轮询）；
+    仅 failed 可重试，其余状态 409。"""
     _require_kb_manage(auth)
-    return await rag.retry_doc(session, auth["tenant_id"], kb_id, doc_id)
+    return JSONResponse(status_code=202, content=await rag.retry_doc(session, auth["tenant_id"], kb_id, doc_id))
 
 
 @router.post("/kbs/{kb_id}/docs/{doc_id}/resplit")
