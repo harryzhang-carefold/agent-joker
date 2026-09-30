@@ -70,8 +70,8 @@ S42c 独立复验结论：txt/md 4 探针 chunk `full[cs:ce] == content` **逐�
 - **commit 2**（管理回写 + 验收 + BUGS 重命名）：BUGS.md（BUG-24/25/26 重命名与补登）+ STATUS/PIPELINE/DECISIONS 回写 + ACCEPTANCE_S44。
 - **不 push 05-temp**（.gitignore 第 24 行 `05-temp/` 已排除，本卡复核确认）。
 - **credential helper 显式指定**（$HOME 下为旧 token，顶层 /home/hermes/.git-credentials 为有效 PAT；仓库无 .github/workflows，无 workflow scope 需求）。
-- **ls-remote 核验（push 后独立执行，非自报）**：`git push origin main` → `760034c..c5a4e07 main -> main`；`git rev-parse HEAD` = `c5a4e07d87416d712631c833769695d78fb14a5c` = `git ls-remote origin main`（credential helper 显式顶层有效 PAT）。**一次 push 完成**，本地/远端一致。
-  - 补记：本验收报告 push 后补录哈希（c5a4e07 内为占位行），补录本身产生一次 docs-only 追加提交并再次 push——验收主交付（S41+S42b+S42c/S44 证据+回写）在 c5a4e07 一次 push 中全部到位，此追加不影响任何交付物。
+- **ls-remote 核验（push 后独立执行，非自报）**：主 push `git push origin main` → `760034c..c5a4e07 main -> main`；`git rev-parse HEAD` = `c5a4e07d87416d712631c833769695d78fb14a5c` = `git ls-remote origin main`（credential helper 显式顶层有效 PAT）。验收主交付（S41 `810d390` + S42b `0f6e6f0` + S42c/S44 证据 + 管理回写，95 文件，05-temp 零文件）在 c5a4e07 一次 push 中全部到位。
+  - 补记：本验收报告 push 后补录远端哈希，补录本身产生一次 docs-only 追加提交 `d1ea643` 并再次 push——push 后最终远端 main = `d1ea643eca02ed45877b5921f52d9ffcf9b85917` = 本地 HEAD，工作区干净，`## main...origin/main` 无领先/落后。此追加不含任何交付物变更。
 
 ## 7. 遗留清单（不阻塞）
 
