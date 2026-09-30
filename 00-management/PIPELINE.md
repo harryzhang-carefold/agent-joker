@@ -315,3 +315,9 @@
 
 - S37 t_62ee7dd0 chuyan: S35+S36 终审+push
 - [2026-09-29 17:0x, S37 终审收口, chuyan] PASS 交付: 不采信自报独立核查（S35 防造假 5/5 + 原始 API 响应逐字 + 2 张关键截图 vision；S36 14 份真实 HTTP 日志逐份核对 + 代码 diff + 容器实码）；本终审独立复跑铁证 202→ready→409→404→检索 0.890359（marker s37x_d5109a1b54）；ACCEPTANCE_S37 + DECISION-032 + RISKS-019 缓解/STATUS 回写；一次 push main（4d179da S36 + S35 证据 + S37 验收），ls-remote 核验。
+
+## 2026-09-30 RAG 三缺陷轮（用户报: md不支持/切分检索出错/对比按钮不可点）
+- 根因: md 未在 SUPPORTED_TYPES; reindex 后旧文档状态不刷新(failed 卡死→对比按钮 disabled); 检索查询向量化瞬时连接失败无重试裸 500(主 agent 复现)
+- S38 t_bda82f31 zhangbeihai 修复三项
+- S39 t_d5ad526f yuntianming 复测
+- S40 t_a48b7d7f chuyan 终审+push
