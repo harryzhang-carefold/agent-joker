@@ -53,11 +53,18 @@ def _resolve_params(strategy: str, params: dict | None) -> dict[str, Any]:
 
 
 def _char_pos(block: ParsedBlock, s: int, e: int) -> dict[str, Any]:
-    """块内字符偏移 [s,e) → 块坐标 pos（保持原键结构，char 偏移相加）。"""
+    """块内字符偏移 [s, s+e) → 块坐标 pos（保持原键结构，char 偏移以 block.char_start 为基）。
+
+    BUG-21 修复：char_end 必须以 block.char_start 为基（= block.char_start + s + e），
+    原实现误用 block.char_end 为基（块级全长 + 块内偏移 → 越界，如 521 字符 txt 的
+    chunk0 存 char_end=1021），导致对比页右→左联动高亮区间越界、高亮错误。
+    所有调用点入参均为 (块内起始 s, 长度 e)，与 char_start 同基。
+    """
     pos = dict(block.pos)
     if "char_start" in pos:
-        pos["char_start"] = int(pos["char_start"]) + s
-        pos["char_end"] = int(pos["char_end"] if pos.get("char_end") is not None else int(pos.get("char_start", 0))) + e
+        base = int(pos.get("char_start") or 0)
+        pos["char_start"] = base + s
+        pos["char_end"] = base + s + e
     else:
         # 页级/整图/表格块：无字符偏移 → 原 pos（页级粒度）
         pass

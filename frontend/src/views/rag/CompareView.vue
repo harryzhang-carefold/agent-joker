@@ -59,8 +59,8 @@
         </div>
         <div class="pane-body chunk-list" ref="chunkList">
           <div v-if="chunksLoading" class="text-muted">加载中…</div>
-          <div v-for="c in chunks" :key="c.chunk_id" :data-cid="c.chunk_id"
-            class="chunk-item" :class="{ active: selectedChunk?.chunk_id === c.chunk_id, is_table: c.is_table }"
+          <div v-for="c in chunks" :key="c.id" :data-cid="c.id"
+            class="chunk-item" :class="{ active: selectedChunk?.id === c.id, is_table: c.is_table }"
             @click="onChunkClick(c)">
             <div class="chunk-head">
               <el-tag size="small" type="primary">#{{ c.chunk_index }}</el-tag>
@@ -249,7 +249,7 @@ async function onChunkClick(c) {
   if (type === 'txt' || type === 'md') {
     // 文本类：取 chunk 原文字符区间精确高亮
     try {
-      const res = await api.getChunkLocation(kbId, docId, c.chunk_id)
+      const res = await api.getChunkLocation(kbId, docId, c.id)
       const pos = res.data?.pos
       if (pos && typeof pos === 'object' && pos.char_start != null) {
         hlRange.value = [pos.char_start, pos.char_end]
@@ -284,7 +284,7 @@ async function onLeftClickSeg(i, seg) {
   try {
     const res = await api.getChunksByLocation(kbId, docId, pos)
     const primary = res.data?.primary_chunk_id
-    const hit = chunks.value.find((c) => c.chunk_id === primary)
+    const hit = chunks.value.find((c) => c.id === primary)
     if (hit) {
       selectedChunk.value = hit
       hlRange.value = [start, end]
@@ -310,7 +310,7 @@ function scrollToOffset(offset) {
 
 function scrollChunkTo(c) {
   const container = chunkList.value
-  const el = container?.querySelector(`[data-cid="${c.chunk_id}"]`) ||
+  const el = container?.querySelector(`[data-cid="${c.id}"]`) ||
     Array.from(container?.children || []).find((n) => n.textContent?.includes(`#${c.chunk_index}`))
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
@@ -324,7 +324,7 @@ async function onEditConfirm() {
   if (!editContent.value.trim()) return ElMessage.warning('内容不能为空')
   saving.value = true
   try {
-    await api.updateChunk(kbId, docId, editTarget.value.chunk_id, { content: editContent.value })
+    await api.updateChunk(kbId, docId, editTarget.value.id, { content: editContent.value })
     ElMessage.success('已编辑并重嵌入向量')
     editDialog.value = false
     loadChunks()
