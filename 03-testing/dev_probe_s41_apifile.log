@@ -1,0 +1,13 @@
+S41 doc-file API 证据 RUN=s41604788
+
+GET /api/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b/docs/8c558407-c4be-4977-9b3f-15523508d296/file  (s41docx_s41604788.docx)
+  status=200 content-type=application/vnd.openxmlformats-officedocument.wordprocessingml.document bytes=37136 magic=504b0304
+  [OK] OOXML (ZIP/PK) 二进制真实，非假二进制
+
+GET /api/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b/docs/a23be87d-42b3-4489-93fc-785edfdb1e37/file  (s41xlsx_s41604788.xlsx)
+  status=200 content-type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet bytes=5645 magic=504b0304
+  [OK] OOXML (ZIP/PK) 二进制真实，非假二进制
+
+GET /api/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b/docs/3318e5fd-d880-40f9-be4e-0f1a337aa8d2/file  (s41jpg_s41604788.jpg)
+  status=200 content-type=image/jpeg bytes=13116 magic=ffd8ffe0
+  [OK] JPEG (ffd8ff) 二进制真实

@@ -12,13 +12,11 @@
     </div>
 
     <div class="split">
-      <!-- 左栏：原文档（txt/文本直读高亮；图片/PDF/docx 按类型降级） -->
+      <!-- 左栏：原文档（txt/md 直读高亮；pdf iframe；png/jpg img；docx docx-preview 渲染；xlsx SheetJS 表格） -->
       <div class="pane left" ref="leftScroll">
         <div class="pane-head">
           <span>原文档</span>
-          <el-tag size="small" :type="leftRendered ? 'success' : 'info'">
-            {{ leftRendered ? '可高亮' : leftHint }}
-          </el-tag>
+          <el-tag size="small" :type="leftTagType">{{ leftTagText }}</el-tag>
         </div>
         <div class="pane-body">
           <img v-if="doc && (doc.doc_type === 'png' || doc.doc_type === 'jpg') && fileUrl"
@@ -31,8 +29,23 @@
               <span v-else :data-start="seg.start" :data-end="seg.end">{{ seg.text }}</span>
             </template>
           </div>
+          <div v-else-if="doc && doc.doc_type === 'docx'" class="orig-docx" ref="docxRef"></div>
+          <div v-else-if="doc && doc.doc_type === 'xlsx'" class="orig-xlsx" ref="xlsxRef">
+            <div v-if="!xlsxSheets.length" class="text-muted">xlsx 无有效工作表</div>
+            <el-tabs v-else v-model="xlsxActive" type="card">
+              <el-tab-pane v-for="s in xlsxSheets" :key="s.name" :label="s.name" :name="s.name">
+                <table class="xlsx-table">
+                  <tbody>
+                    <tr v-for="(row, ri) in s.rows" :key="ri">
+                      <td v-for="(cell, ci) in row" :key="ci">{{ cell }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </el-tab-pane>
+            </el-tabs>
+          </div>
           <div v-else class="text-muted">
-            原文档为 {{ doc?.doc_type || '-' }} 类型，当前降级渲染（{{ leftHint }}）。
+            原文档为 {{ doc?.doc_type || '-' }} 类型，当前降级渲染（{{ leftTagText }}）。
             点右栏 chunk 仍可高亮原文（文本类）/查看 chunk 详情。
           </div>
         </div>
@@ -79,11 +92,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { renderAsync } from 'docx-preview'
+import * as XLSX from 'xlsx'
 import * as api from '@/api/rag'
 import { strategyLabel, describePos } from '@/utils/rag'
+import { highlightQuery, clearMarks } from '@/utils/highlight'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -98,9 +114,13 @@ const chunksLoading = ref(false)
 const selectedChunk = ref(null)
 const fileUrl = ref('')
 const leftText = ref('')
-const leftRendered = ref(false)
-const leftHint = ref('')
+const leftTagType = ref('info')
+const leftTagText = ref('')
 const origText = ref(null)
+const docxRef = ref(null)
+const xlsxRef = ref(null)
+const xlsxSheets = ref([])
+const xlsxActive = ref('')
 const leftScroll = ref(null)
 const chunkList = ref(null)
 
@@ -110,7 +130,7 @@ const editTarget = ref(null)
 const editContent = ref('')
 const saving = ref(false)
 
-// 当前高亮的字符区间 [start, end)
+// 当前高亮的字符区间 [start, end)（仅文本类 txt/md）
 const hlRange = ref(null)
 const leftSegments = computed(() => {
   if (!leftText.value) return []
@@ -123,6 +143,11 @@ const leftSegments = computed(() => {
   if (e < t.length) segs.push({ text: t.slice(e), hl: false, start: e, end: t.length })
   return segs
 })
+
+function setLeftTag(type, text) {
+  leftTagType.value = type
+  leftTagText.value = text
+}
 
 function back() { router.push(`/rag/kbs/${kbId}`) }
 
@@ -139,47 +164,114 @@ async function loadChunks() {
   } finally { chunksLoading.value = false }
 }
 
+// docx → docx-preview 渲染为 HTML（bodyContainer 传入）
+async function renderDocx(buf) {
+  const container = docxRef.value
+  if (!container) return
+  container.innerHTML = ''
+  const blob = new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+  try {
+    await renderAsync(blob, container)
+  } catch (e) {
+    container.innerHTML = `<div class="text-muted">docx 渲染失败：${e && e.message ? e.message : e}</div>`
+  }
+}
+
+// xlsx → SheetJS 解析为多 sheet 表格（首个 sheet 默认，多 sheet 给 tab 切换）
+function renderXlsx(buf) {
+  xlsxSheets.value = []
+  xlsxActive.value = ''
+  let wb
+  try {
+    wb = XLSX.read(new Uint8Array(buf), { type: 'array' })
+  } catch (e) {
+    xlsxSheets.value = [{ name: 'error', rows: [['xlsx 解析失败：' + (e && e.message ? e.message : e)]] }]
+    xlsxActive.value = 'error'
+    return
+  }
+  const sheets = []
+  for (const name of wb.SheetNames) {
+    const ws = wb.Sheets[name]
+    if (!ws) continue
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+      .map((r) => (Array.isArray(r) ? r.map((c) => (c == null ? '' : String(c))) : [String(r)]))
+    sheets.push({ name, rows })
+  }
+  xlsxSheets.value = sheets
+  xlsxActive.value = sheets[0]?.name || ''
+}
+
 async function loadOriginal() {
   // 左栏渲染源：GET /api/rag/kbs/{id}/docs/{docId}/file
   const url = api.getDocFileUrl(kbId, docId)
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${auth.accessToken}` } })
-  if (!res.ok) return
+  const token = auth.accessToken
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) {
+    setLeftTag('info', '原文获取失败')
+    return
+  }
   const ct = res.headers.get('content-type') || ''
   const type = doc.value?.doc_type
-  // 文本类直读高亮
   if (type === 'txt' || type === 'md' || ct.includes('text')) {
+    // 文本类直读高亮
     leftText.value = await res.text()
-    leftRendered.value = true
-    leftHint.value = ''
-  } else if (type === 'png' || type === 'jpg' || type === 'pdf') {
+    setLeftTag('success', '可高亮')
+  } else if (type === 'png' || type === 'jpg') {
     fileUrl.value = URL.createObjectURL(await res.blob())
-    leftRendered.value = false
-    leftHint.value = type === 'pdf' ? 'PDF 预览' : '图片直显（整图=1 chunk）'
+    setLeftTag('info', '图片直显（整图=1 chunk）')
+  } else if (type === 'pdf') {
+    fileUrl.value = URL.createObjectURL(await res.blob())
+    setLeftTag('info', 'PDF 预览')
+  } else if (type === 'docx') {
+    await renderDocx(await res.arrayBuffer())
+    setLeftTag('success', '已渲染')
+  } else if (type === 'xlsx') {
+    renderXlsx(await res.arrayBuffer())
+    setLeftTag('success', '已渲染')
   } else {
-    // docx/xlsx 降级：不渲染高亮，仅提示
-    leftRendered.value = false
-    leftHint.value = `${type} 降级渲染`
+    setLeftTag('info', `${type} 降级渲染`)
   }
 }
 
 function reloadAll() {
+  hlRange.value = null
+  selectedChunk.value = null
   loadDoc().then(() => { loadChunks(); loadOriginal() })
 }
 
-// 右→左联动：点 chunk → 取 location → 高亮原文 + 滚动
+// 右→左联动：点 chunk → 高亮原文 + 滚动
 async function onChunkClick(c) {
   selectedChunk.value = c
   hlRange.value = null
-  // 右→左：取 chunk 原文位置
-  try {
-    const res = await api.getChunkLocation(kbId, docId, c.chunk_id)
-    const pos = res.data?.pos
-    if (pos && leftRendered.value && typeof pos === 'object' && pos.char_start != null) {
-      hlRange.value = [pos.char_start, pos.char_end]
-      await nextTick()
-      scrollToOffset(pos.char_start)
+  const type = doc.value?.doc_type
+  if (type === 'txt' || type === 'md') {
+    // 文本类：取 chunk 原文字符区间精确高亮
+    try {
+      const res = await api.getChunkLocation(kbId, docId, c.chunk_id)
+      const pos = res.data?.pos
+      if (pos && typeof pos === 'object' && pos.char_start != null) {
+        hlRange.value = [pos.char_start, pos.char_end]
+        await nextTick()
+        scrollToOffset(pos.char_start)
+      }
+    } catch (e) { /* 忽略定位失败 */ }
+    return
+  }
+  if (type === 'docx' || type === 'xlsx') {
+    // docx/xlsx：在渲染后 DOM 中按 chunk 文本匹配高亮（最佳努力；匹配不到仅显示原文不报错）
+    await nextTick()
+    const root = type === 'docx' ? docxRef.value : xlsxRef.value
+    if (root) {
+      clearMarks(root)
+      highlightQuery(root, c.content)
+      const mk = root.querySelector('mark.hl')
+      if (mk) mk.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  } catch (e) { /* 忽略定位失败 */ }
+    return
+  }
+  // pdf/图片：不高亮（设计降级）
 }
 
 // 左→右联动：点原文某段 → by-location 反查该区间包含的 chunk → 右栏定位
@@ -261,8 +353,20 @@ onMounted(async () => {
 .pane-body { flex: 1; overflow: auto; padding: 10px 12px; }
 .orig-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
 .orig-text .hl { background: #fff3b0; outline: 1px solid #e6a23c; cursor: pointer; }
+.orig-docx :deep(mark.hl) { background: #fff3b0; outline: 1px solid #e6a23c; cursor: pointer; }
+.orig-xlsx :deep(mark.hl) { background: #fff3b0; outline: 1px solid #e6a23c; cursor: pointer; }
 .orig-img { max-width: 100%; height: auto; }
 .orig-pdf { width: 100%; height: 100%; border: none; }
+/* docx-preview 渲染容器 */
+.orig-docx { min-height: 60px; }
+.orig-docx :deep(.docx-wrapper) { max-width: 100%; }
+.orig-docx :deep(.docx) { font-size: 14px; line-height: 1.6; }
+/* xlsx 表格 */
+.orig-xlsx :deep(table.xlsx-table) { border-collapse: collapse; width: 100%; font-size: 13px; }
+.orig-xlsx :deep(table.xlsx-table td) {
+  border: 1px solid #ebeef5; padding: 4px 8px; white-space: pre-wrap; word-break: break-word;
+}
+.orig-xlsx :deep(table.xlsx-table tr:first-child td) { background: #f5f7fa; font-weight: 600; }
 .chunk-list { display: flex; flex-direction: column; gap: 8px; }
 .chunk-item {
   border: 1px solid #e4e7ed; border-radius: 6px; padding: 8px;

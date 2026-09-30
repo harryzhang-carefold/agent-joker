@@ -1,0 +1,5 @@
+S41 回归 start 2026-09-30T10:37:10.460Z
+2026-09-30T10:37:10.986Z PASS | 00 登录 | status=200
+2026-09-30T10:37:13.673Z PASS | 回归 md t.md 左栏 | tag=可高亮 | leftLen=13
+2026-09-30T10:37:15.418Z PASS | 回归 pdf policy.pdf 左栏 | tag=PDF 预览 | iframeSrc=blob:http://localhost:8080/22d
+S41 回归 done: pass=3 fail=0

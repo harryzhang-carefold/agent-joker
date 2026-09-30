@@ -1,0 +1,13 @@
+S41 UI 自测 RUN=s41604788 start 2026-09-30T10:36:44.940Z
+2026-09-30T10:36:46.470Z PASS | 00 真实表单登录 acme/admin | status=200 url=http://localhost:8080/users
+2026-09-30T10:36:47.060Z PASS | 01 进入 1536 库 upload-repro-01 文档页 | url=http://localhost:8080/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b
+2026-09-30T10:36:47.991Z PASS | 上传 s41docx_s41604788.docx | file=s41_docx_probe.docx
+2026-09-30T10:36:48.927Z PASS | 上传 s41xlsx_s41604788.xlsx | file=s41_xlsx_probe.xlsx
+2026-09-30T10:36:49.904Z PASS | 上传 s41jpg_s41604788.jpg | file=s41_jpg_big.jpg
+2026-09-30T10:37:00.041Z PASS | 文档全部 ready | {"s41docx_s41604788.docx":"ready","s41xlsx_s41604788.xlsx":"ready","s41jpg_s41604788.jpg":"ready"}
+2026-09-30T10:37:02.696Z PASS | 对比页 s41docx_s41604788.docx 左栏渲染 | tag=已渲染 | leftTextLen=197762 sample=.docx-wrapper { background: gray; padding: 30px; padding-bot
+2026-09-30T10:37:03.575Z PASS | 对比页 docx 点 chunk 高亮（最佳努力） | marks=1（匹配不到=0 亦可，不报错）
+2026-09-30T10:37:06.357Z PASS | 对比页 s41xlsx_s41604788.xlsx 左栏渲染 | tag=已渲染 | cells=36 firstCell=SKU
+2026-09-30T10:37:07.190Z PASS | 对比页 xlsx 点 chunk 高亮（最佳努力） | marks=0（匹配不到=0 亦可，不报错）
+2026-09-30T10:37:09.963Z PASS | 对比页 s41jpg_s41604788.jpg 左栏渲染 | tag=图片直显（整图=1 chunk） | imgSrc=blob:http://localhost:8080/2badaf1d-8588 naturalWidth=534
+S41 UI 自测 done: pass=11 fail=0
