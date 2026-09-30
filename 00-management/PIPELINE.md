@@ -318,6 +318,6 @@
 
 ## 2026-09-30 RAG 三缺陷轮（用户报: md不支持/切分检索出错/对比按钮不可点）
 - 根因: md 未在 SUPPORTED_TYPES; reindex 后旧文档状态不刷新(failed 卡死→对比按钮 disabled); 检索查询向量化瞬时连接失败无重试裸 500(主 agent 复现)
-- S38 t_bda82f31 zhangbeihai 修复三项
-- S39 t_d5ad526f yuntianming 复测
-- S40 t_a48b7d7f chuyan 终审+push
+- S38 t_bda82f31 zhangbeihai 修复三项（commit ac49755，自测 15/15 + dev_probe_s38_01..17）
+- S39 t_d5ad526f yuntianming 复测（真实 UI 全链路，RUN s39929677，PASS，TEST_REPORT_S39 + 32 截图 + api_raw 58 份）
+- S40 t_a48b7d7f chuyan 终审+push：**PASS 交付（2026-09-30）**。不采信自报独立核查：防造假 6/6（S39 4 脚本 grep fetch/localStorage 零代码命中、4 处 page.goto 全为 /login 入口、32 截图与报告对应 + 6 张关键截图独立 vision 复核、raw_027/045/053/054-058 逐字核对 0.696454/0.449167/502 可读/5×200、58 份零 500）；容器实码 4 处修复点独立 grep（SUPPORTED_TYPES 含 md / _requeue_failed_docs L1080+L1097 / _embed_query_with_retry L119+L226 / text/markdown L281）；joker-api 日志独立 grep RUN s39929677 KB_A 005640e3 全时序铁证（uploaded→reindex done dim=1536→requeued 1 failed docs→doc ready，零手动 retry）；psql 终态（s39 库 5 行全软删/0 活跃、9 模型全 disabled、删库日志 5 条与 cleanup 日志自洽）；S38×S39 证据交叉（md 双侧命中 0.53712/0.449167、reindex 日志×2、502 语义一致）。S39 披露 3 个脚本 FAIL 均核实为脚本 JSON 解析缺陷（raw 铁证产品行为正确），非产品 BUG。BUG-21/22/23 补登 BUGS.md 已关闭。一次 push main：ac49755(S38) + a7e3cbd(PIPELINE) + S39 证据 + ACCEPTANCE_S40 + BUGS/PIPELINE/STATUS 回写（不推 05-temp）；ls-remote 核验见 STATUS.md 收口条目。遗留（不阻塞）：md 纯文本解析边界 P3、502 重试最小语义 P3、RISK-019 3584 端点漂移待补测、BUG-20 P3 观察。
