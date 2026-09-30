@@ -75,6 +75,6 @@
   - S39 测试证据：TEST_REPORT_S39.md + screenshots/s39/（32 张）
   - 本终审：ACCEPTANCE_S40.md + BUGS.md（BUG-21/22/23 补登）+ PIPELINE/STATUS 回写
   - 不 push 05-temp/
-- **commit hash**：`3c53bc9`（S40 终审 commit，含 S38 代码 ac49755 + S39 证据 + 本验收/回写；本地 HEAD = 该 commit）
-- **ls-remote 核验**：`git ls-remote origin main` = `3c53bc94be406bf93b741a8625d4c2b7586d960f` = 本地 HEAD `git rev-parse HEAD`，**远端 main 与本地一致**（push 输出 `7bfda87..3c53bc9 main -> main`）。
-- **收口补记**：`<收口 commit，push 后回写>`
+- **commit hash**：`44a3500`（S40 终审交付 commit，含 S38 代码 ac49755 + S39 证据 + 本验收/回写）
+- **ls-remote 核验**：`git ls-remote origin main` = `44a3500b9f5cadd33579a50450e50590a0d0674a` = 本地 `git rev-parse HEAD`，**远端 main 与本地一致**（push 输出 `3c53bc9...44a3500 main -> main`）。
+- **收口补记**：本行随 S40 收口 commit 落盘（记录上述 ls-remote 核验终值），一次 push 完成。
