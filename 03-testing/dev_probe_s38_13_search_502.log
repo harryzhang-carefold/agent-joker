@@ -1,0 +1,1 @@
+{"ts": "2026-09-30T16:28:00+0800", "method": "POST", "url": "http://localhost:8080/api/rag/search", "request_body": {"kb_ids": ["20dd5d5b-7562-4040-91ed-6f9b896ae802"], "query": "s38 502 tolerance probe", "top_k": 3}, "status": 502, "response_body": {"detail": "embedding 服务暂时不可用（已自动重试 1 次仍失败）：请检查 embedding 端点连通性后重试检索。（ConnectError）"}}

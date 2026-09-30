@@ -2,6 +2,7 @@
 
 按 doc_type 分派解析器，产出「内容流」（块序列）：
 - txt          → 直读（单块全文）
+- md           → 直读（单块全文；markdown 按纯文本解析，不做语义切分，S38）
 - docx         → python-docx（段落/表格按文档顺序；标题层级 → section_path）
 - xlsx         → openpyxl（每个 sheet 的表格 → Markdown 表格块，含行列范围）
 - pdf          → pymupdf（页文本层；页无文本 → 扫描页标记；内嵌图片抽取）
@@ -33,10 +34,12 @@ from joker_shared.crypto import decrypt_secret
 
 log = logging.getLogger("joker.rag.parser")
 
-SUPPORTED_TYPES = ("txt", "docx", "xlsx", "pdf", "png", "jpg")
+SUPPORTED_TYPES = ("txt", "md", "docx", "xlsx", "pdf", "png", "jpg")
 
 DOC_TYPE_BY_EXT = {
     ".txt": "txt",
+    ".md": "md",
+    ".markdown": "md",
     ".docx": "docx",
     ".xlsx": "xlsx",
     ".pdf": "pdf",
@@ -471,7 +474,7 @@ async def parse_document(
     if doc_type not in SUPPORTED_TYPES:
         raise HTTPException(422, f"unsupported doc_type: {doc_type} (supported: {', '.join(SUPPORTED_TYPES)})")
 
-    if doc_type == "txt":
+    if doc_type in ("txt", "md"):  # md = markdown 按纯文本解析（S38；不做 markdown 语义切分）
         result = await asyncio.to_thread(_parse_txt, data)
     elif doc_type == "docx":
         result = await asyncio.to_thread(_parse_docx, data)

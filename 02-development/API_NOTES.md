@@ -167,7 +167,7 @@
 > 动态建 `rag_chunks_vec_<kb_id>`（HNSW，按实际维度）；检索只走本库表（S05）。
 > **文档状态机**（DECISION-021 进程内队列，worker 单并发串行）：
 > `uploaded→parsing→splitting→embedded→ready`，失败 → `failed`（`error_message` 摘要，可 retry）。
-> **6 类文档**：txt / docx / xlsx / pdf / png / jpg（.jpg→jpg）。
+> **7 类文档**：txt / **md**（markdown，按纯文本解析，S38；.md/.markdown→md）/ docx / xlsx / pdf / png / jpg（.jpg→jpg）。
 > **.doc 旧格式 → 422**（提示转 .docx）；非支持类型/空文件 → 422。
 > **视觉解析**（RAG-03）：图片/扫描页/内嵌图 → 调 `supports_vision=true` 的 LLM endpoint；
 > 视觉不可用 → 降级（占位块 `[图片未解析: ...]` + `rag_doc_images.status=skipped` + 日志 RISK，**不阻断**流水线）。
@@ -180,7 +180,7 @@
 | GET | `/api/rag/kbs/{kb_id}` | 详情（含 `vec_table`/`vec_table_exists`）；404 |
 | PUT | `/api/rag/kbs/{kb_id}` | 更新配置（name/description/tag/top_k_default/recall_top_n/score_threshold/split_strategy_default/split_params_default/status）；409 重名 |
 | DELETE | `/api/rag/kbs/{kb_id}` | 删库：级联删文档/chunk + **DROP 独立向量表**（D-C 物理释放）→ `{ok, deleted}` |
-| POST | `/api/rag/kbs/{kb_id}/reindex` | 换 embedding 模型=全库重算（D-C 流程 c）：体 `{embedding_model_id}`；影子表（新维度）→全量重嵌入（status=reindexing，期间检索走旧表）→切换→DROP 旧表；异步，GET /kbs/{id} 查 status；409 已在 reindexing |
+| POST | `/api/rag/kbs/{kb_id}/reindex` | 换 embedding 模型=全库重算（D-C 流程 c）：体 `{embedding_model_id}`；影子表（新维度）→全量重嵌入（status=reindexing，期间检索走旧表）→切换→DROP 旧表；异步，GET /kbs/{id} 查 status；409 已在 reindexing。**S38**：完成后该库 `failed` 文档自动重置入队重算（复用 retry 逻辑；重算失败保持 failed 并刷新 error_message） |
 
 ### 文档（docs，RAG-02）
 | 方法 | 路径 | 说明 |
@@ -218,7 +218,7 @@
 ### 检索（S05 已实装，RAG-06/07/08/09）
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/rag/search` | 知识库检索（scope `rag:search`，缺失 403）。体 `{kb_ids:UUID[]（必选，同租户）, query:str（必选）, top_k?:int, score_threshold?:float, use_rerank?:bool=true, agent_id?:UUID}`。语义：**D-C** 逐库查各自 `rag_chunks_vec_<kb_id>`（该库建库快照 embedding 模型向量化查询）后应用层合并；**RAG-07** 任一库配 active reranker 且未显式关闭 → 重排（端点不可用降级纯向量）；**DECISION-006 阈值双语义**：有 rerank 阈值作用 rerank 分数、无则作用余弦相似度；**RAG-08** top_k/阈值 单次覆盖，未传回落库级默认（多库取各库最大值=最严格）。出参 `{items:[{chunk_id, content, kb_id, doc_id, doc_file_name, chunk_index, pos, tag, is_official, score, parent_content?}], total, top_k, threshold, reranked}`。403 缺 scope；404 库不存在/跨租户；409 库非 active；422 空 query/kb_ids |
+| POST | `/api/rag/search` | 知识库检索（scope `rag:search`，缺失 403）。体 `{kb_ids:UUID[]（必选，同租户）, query:str（必选）, top_k?:int, score_threshold?:float, use_rerank?:bool=true, agent_id?:UUID}`。语义：**D-C** 逐库查各自 `rag_chunks_vec_<kb_id>`（该库建库快照 embedding 模型向量化查询）后应用层合并；**RAG-07** 任一库配 active reranker 且未显式关闭 → 重排（端点不可用降级纯向量）；**DECISION-006 阈值双语义**：有 rerank 阈值作用 rerank 分数、无则作用余弦相似度；**RAG-08** top_k/阈值 单次覆盖，未传回落库级默认（多库取各库最大值=最严格）。出参 `{items:[{chunk_id, content, kb_id, doc_id, doc_file_name, chunk_index, pos, tag, is_official, score, parent_content?}], total, top_k, threshold, reranked}`。403 缺 scope；404 库不存在/跨租户；409 库非 active；422 空 query/kb_ids。**S38 查询向量化容错**：查询 embed 调用瞬时失败（网络/端点 5xx）自动重试 1 次（2s 退避）；仍失败 → 502 可读错误（`embedding 服务暂时不可用（已自动重试 1 次仍失败）…`），不再裸 500 ASGI traceback |
 | POST | `/internal/rag/search` | 内部检索（DECISION-009 签名头，供 SAR/BFF 机器凭证调用；D-B 非拦截范围）。与 `/api/rag/search` 同一核心 + **agent_id 提供时 (agent_id,kb_id) 勾选校验**（未勾选 403）+ **落 trace `rag` 事件**（不产生 tool_call；user_id 为 None 时回退租户首个 active 用户落痕）。出参 = 上表 + `agent_id`。401 未签名/签名错 |
 | POST | `/internal/storage/rag-search` | **S02 契约兼容别名**（S05 起已接通检索核心，非 501 stub）：1:1 同参同出参于 `/internal/rag/search`；规范路径 = `/internal/rag/search` |
 

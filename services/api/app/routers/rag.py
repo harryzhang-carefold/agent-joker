@@ -105,7 +105,9 @@ async def reindex_kb(
 ):
     """换 embedding 模型 = 全库重算向量（D-C / DECISION-024 流程 c）：
     影子表（新维度）→ 全量重嵌入（status=reindexing，期间检索走旧表）→ 切换 → DROP 旧表。
-    体：{embedding_model_id: UUID}。异步执行；GET /kbs/{id} 查 status。"""
+    体：{embedding_model_id: UUID}。异步执行；GET /kbs/{id} 查 status。
+    S38：完成后该库 failed 文档自动重置入队重算（复用 retry 逻辑；重算失败保持 failed
+    并刷新 error_message）——消除「reindex 成功但旧文档仍 failed+旧错误、UI 无感知」缺陷。"""
     _require_kb_manage(auth)
     if not body.get("embedding_model_id"):
         raise HTTPException(422, "embedding_model_id is required")
@@ -124,7 +126,7 @@ async def upload_doc(
     auth: dict = Depends(auth_context),
     session: AsyncSession = Depends(db_session),
 ):
-    """上传文档到知识库（RAG-02，6 类：txt/docx/xlsx/pdf/png/jpg）：
+    """上传文档到知识库（RAG-02，7 类：txt/md/docx/xlsx/pdf/png/jpg；md=markdown 按纯文本解析，S38）：
     StorageService 落盘（source=kb，上传记录可查）→ rag_docs（status=uploaded）→
     进程内任务队列（uploaded→parsing→splitting→embedded→ready/failed）。
     422：非支持类型 / .doc 旧格式（提示转 .docx）/ 空文件。"""
@@ -276,6 +278,7 @@ async def doc_file(
     doc, data = await rag.doc_file_bytes(session, auth["tenant_id"], kb_id, doc_id)
     media = {
         "txt": "text/plain; charset=utf-8",
+        "md": "text/markdown; charset=utf-8",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "pdf": "application/pdf",

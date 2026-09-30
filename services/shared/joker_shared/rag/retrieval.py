@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -35,6 +36,10 @@ from joker_shared.llm import get_llm_service
 from joker_shared.rag.service import vec_table
 
 log = logging.getLogger("joker.rag.search")
+
+# S38 检索查询向量化容错：embed 调用瞬时连接失败（httpcore 连接错误等）时 1 次重试 + 2s 退避；
+# 仍失败 → 可读 502（不再裸 500 ASGI traceback 透传前端）。
+_EMBED_RETRY_DELAY_S = 2.0
 
 
 # ---------------------------------------------------------------- official 两级判定（D-A）
@@ -111,6 +116,45 @@ def _vec_literal(vec: list[float]) -> str:
     return "[" + ",".join(repr(float(x)) for x in vec) + "]"
 
 
+async def _embed_query_with_retry(llm, session: AsyncSession, model_id: str, query: str) -> list[float]:
+    """S38：查询向量化容错——失败 1 次重试（2s 退避）；仍失败 → 可读 502。
+
+    复现背景：首次查询曾 500（httpcore 连接失败，裸 ASGI traceback），重试 3/3 200。
+    仅针对**网络/服务瞬时错误**（Exception 及 502 端点错误）重试；4xx 业务错误（404 模型
+    不存在/409 disabled）不重试、原样抛出。
+    """
+    try:
+        return (await llm.embed_texts(session, model_id, [query]))[0]
+    except HTTPException as exc:
+        if exc.status_code < 500:
+            raise
+        log.warning("query embedding failed (HTTP %s); retrying in %.1fs (model=%s)",
+                    exc.status_code, _EMBED_RETRY_DELAY_S, model_id)
+        await asyncio.sleep(_EMBED_RETRY_DELAY_S)
+        try:
+            return (await llm.embed_texts(session, model_id, [query]))[0]
+        except Exception as exc2:  # noqa: BLE001 — 统一转为可读 502
+            log.exception("query embedding failed after retry (model=%s)", model_id)
+            raise HTTPException(
+                502,
+                f"embedding 服务暂时不可用（已自动重试 1 次仍失败）：请检查 embedding 端点连通性后重试检索。"
+                f"（{type(exc2).__name__}）",
+            ) from exc2
+    except Exception as exc:  # noqa: BLE001 — httpcore/timeout 等网络错误
+        log.warning("query embedding failed (%s); retrying in %.1fs (model=%s)",
+                    type(exc).__name__, _EMBED_RETRY_DELAY_S, model_id)
+        await asyncio.sleep(_EMBED_RETRY_DELAY_S)
+        try:
+            return (await llm.embed_texts(session, model_id, [query]))[0]
+        except Exception as exc2:  # noqa: BLE001
+            log.exception("query embedding failed after retry (model=%s)", model_id)
+            raise HTTPException(
+                502,
+                f"embedding 服务暂时不可用（已自动重试 1 次仍失败）：请检查 embedding 端点连通性后重试检索。"
+                f"（{type(exc2).__name__}）",
+            ) from exc2
+
+
 async def search_kbs(
     session: AsyncSession,
     tenant_id: str,
@@ -179,7 +223,7 @@ async def search_kbs(
         if not exists:
             log.warning("vec table missing for kb=%s (%s); skip", kb["id"], tname)
             continue
-        qvec = (await llm.embed_texts(session, kb["embedding_model_id"], [query]))[0]
+        qvec = await _embed_query_with_retry(llm, session, kb["embedding_model_id"], query)
         if len(qvec) != kb["embedding_dim"]:
             raise HTTPException(
                 500, f"query embedding dim mismatch: got {len(qvec)} want {kb['embedding_dim']} (kb={kb['id']})"

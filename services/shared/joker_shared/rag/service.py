@@ -1073,6 +1073,13 @@ async def _run_reindex(
             )
             await session.commit()
             log.info("reindex done kb=%s: shadow %s → %s (dim=%s)", kb_id, shadow, tname, new_dim)
+            # S38 一致性：reindex 完成后，该库 failed 文档自动重置入队重算（复用 retry 逻辑）。
+            # 旧缺陷：reindex 成功但旧文档仍显示 failed+旧错误，UI 无感知（对比按钮持续 disabled）。
+            # 重算若失败保持 failed 并刷新 error_message（worker 异常分支天然覆盖）。
+            try:
+                await _requeue_failed_docs(session, tenant_id, kb_id)
+            except Exception:
+                log.exception("reindex failed-doc requeue failed kb=%s (kb active; docs stay failed)", kb_id)
             return
     except Exception:
         log.exception("reindex failed kb=%s (status stays reindexing; manual cleanup)", kb_id)
@@ -1086,6 +1093,33 @@ async def _run_reindex(
 
 
 # ---------------------------------------------------------------- 重试
+
+async def _requeue_failed_docs(session: AsyncSession, tenant_id: str, kb_id: str) -> list[str]:
+    """S38：reindex 完成后，该库 failed 文档自动重置入队重算（复用 retry_doc 语义：
+    状态回 uploaded → 重新入队 → worker 从 parsing 重跑；重算若失败保持 failed 并刷新
+    error_message，由 worker 异常分支天然覆盖）。
+
+    正在流水线中（非 failed）的文档不动，避免重复入队。重算走当前（新）embedding 模型：
+    worker 重切分阶段删旧 chunk（旧向量行随 FK CASCADE 同删，reindex 已 DROP 旧表故无残留）
+    → 重新嵌入写入新维度向量表。"""
+    rows = (
+        await session.execute(
+            text(
+                "SELECT id FROM rag_docs WHERE knowledge_base_id = CAST(:id AS uuid) "
+                "AND tenant_id = CAST(:t AS uuid) AND deleted_at IS NULL AND status = 'failed'"
+            ),
+            {"id": kb_id, "t": tenant_id},
+        )
+    ).fetchall()
+    if not rows:
+        return []
+    doc_ids = [str(r[0]) for r in rows]
+    for doc_id in doc_ids:
+        await _set_doc_status(session, doc_id, "uploaded")
+        await _task_queue.enqueue(doc_id)
+    log.info("reindex: requeued %d failed docs for kb=%s: %s", len(doc_ids), kb_id, doc_ids)
+    return doc_ids
+
 
 async def retry_doc(session: AsyncSession, tenant_id: str, kb_id: str, doc_id: str) -> dict:
     """failed 文档重试：状态回 uploaded → 重新入队（从 parsing 重跑）。"""
