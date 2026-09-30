@@ -1,11 +1,11 @@
-# DEV_REPORT_S42b — 修复 BUG-21 对比页右→左联动 txt/md 点 chunk 500 + 切分器 pos 越界
+# DEV_REPORT_S42b — 修复 BUG-24 对比页右→左联动 txt/md 点 chunk 500 + 切分器 pos 越界
 
 > 章北海（zhangbeihai）| 2026-09-30 | 任务 t_9cefd314（父 t_2e466e41 S42）
-> 修复对象：S42 独立复测发现的 P1 真实产品 BUG-21（pre-existing，非 S41 引入）。
+> 修复对象：S42 独立复测发现的 P1 真实产品 BUG-24（pre-existing，非 S41 引入）。
 
 ## 1. 问题与根因（含任务单未预判的第二缺陷）
 
-### 1.1 缺陷 A（BUG-21 主体，前端字段不匹配）
+### 1.1 缺陷 A（BUG-24 主体，前端字段不匹配）
 对比页 `frontend/src/views/rag/CompareView.vue` 全量读 `c.chunk_id`，但右栏 chunk 列表
 API（`list_chunks` → `_chunk_dict`）返回字段是 **`id`**（无 `chunk_id`）：
 - `c.chunk_id === undefined` → 请求打到 `.../chunks/undefined/location` → **500**
@@ -39,7 +39,7 @@ pos["char_end"] = int(pos["char_end"] ...) + e   # 以 block.pos.char_end（块�
 content 本身一直正确（`chunk0 == text[:500]`、`chunk1 == text[450:]` 已验证），**只有
 char_end 越界**。后果：前端 `t.slice(0, 1021)` 用越界区间 → **整篇原文被高亮**（高亮错误，
 违反 R06/R09「精确高亮」验收）。docx 用文本匹配高亮不读 char 区间，故 S41 未发现；
-txt/md 读 char 区间，故越界缺陷在 BUG-21 字段修复后必暴露——**必须同轮修**，否则
+txt/md 读 char 区间，故越界缺陷在 BUG-24 字段修复后必暴露——**必须同轮修**，否则
 「点 chunk → 左栏精确高亮」无法闭环。
 
 ## 2. 修复改动
@@ -107,14 +107,14 @@ in-page fetch/localStorage）：
   `md_chunk0_hl.png`（黄色高亮 + 仅 #0 active + 无红横幅）。
 
 ## 6. 已知问题 / 边界
-- **BUG-22（P3，非本卡）**：embedding 端点瞬时 ReadError 无自动重试——S42 已记，待后续排期，
+- **BUG-25（P3，非本卡）**：embedding 端点瞬时 ReadError 无自动重试——S42 已记，待后续排期，
   不阻塞本轮。
 - md 按纯文本解析不做 markdown 语义切分（S38 既定边界，P3）。
 - 本次仅重切 2 个 S42 探针文档；**其余历史文档若存过越界 pos，需各自 resplit 才修正**——
   本轮范围仅 S42 复测数据，未全库重切（如需全库修正请另开任务，注意重切会重算向量）。
 
 ## 7. 交测试
-交云天明 S42 回归复测：BUG-21 字段修复（无 500/无全 active/高亮）+ pos 越界复验
+交云天明 S42 回归复测：BUG-24 字段修复（无 500/无全 active/高亮）+ pos 越界复验
 （txt/md 点 chunk 精确高亮）+ 7 类型回归。测试数据保留在库（用户指定）。
 
 ## 变更文件

@@ -1,0 +1,11 @@
+S42 UI 全类型复测 RUN=s42612369 start 2026-09-30T10:53:32.503Z
+2026-09-30T10:53:34.094Z PASS | 00 真实表单登录 acme/admin | status=200 url=http://localhost:8080/users
+2026-09-30T10:53:34.861Z PASS | 01 进入 1536 库 upload-repro-01 文档页 | url=http://localhost:8080/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b
+2026-09-30T10:53:35.800Z PASS | 上传 s42txt_s42612369.txt | http=201 src=s42_txt_probe.txt
+2026-09-30T10:53:36.718Z PASS | 上传 s42md_s42612369.md | http=201 src=s42_md_probe.md
+2026-09-30T10:53:37.633Z PASS | 上传 s42docx_s42612369.docx | http=201 src=s42_docx_probe.docx
+2026-09-30T10:53:38.566Z PASS | 上传 s42xlsx_s42612369.xlsx | http=201 src=s42_xlsx_probe.xlsx
+2026-09-30T10:53:39.504Z PASS | 上传 s42pdf_s42612369.pdf | http=201 src=s42_pdf_probe.pdf
+2026-09-30T10:53:40.437Z PASS | 上传 s42png_s42612369.png | http=201 src=s42_png_probe.png
+2026-09-30T10:53:41.370Z PASS | 上传 s42jpg_s42612369.jpg | http=201 src=s42_jpg_probe.jpg
+FATAL page.waitForTimeout: Target page, context or browser has been closed

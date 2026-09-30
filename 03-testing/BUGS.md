@@ -296,6 +296,46 @@
 
 ---
 
+## BUG-24（P1 · 原 S42 编号 BUG-21）对比页右→左联动对 txt/md 失效：点 chunk 触发 `chunks/undefined/location` → 500，左栏永不高亮 + 顶部「Internal Server Error」横幅（S42 发现，非 S41 引入）
+
+> **编号说明（S44 终审 2026-09-30，P4 编号冲突治理）**：本缺陷 S42/S42b/S42c 阶段编号为 BUG-21，与本文件上方旧 RAG 三缺陷轮 BUG-21（md 支持，P2，S38 已关闭，S40 历史交付记录仍引用）撞号。S44 终审裁定：**本对比页缺陷重命名为 BUG-24**（旧 RAG 轮 BUG-21/22/23 编号保留不动）。本文内引用同步更新；TEST_REPORT_S42.md 等同轮活跃引用已同步，S40 轮历史交付记录（ACCEPTANCE_S40 等）保持原编号。
+
+- **现象**：txt/md 文档点对比页右栏任一 chunk → 顶部弹红色「Internal Server Error」横幅，**左栏原文无高亮**。截图 `03-testing/screenshots/s42/cmp_txt_chunk_hl.png`（红横幅 + 左栏无高亮）、`cmp_md_chunk_hl.png`。
+- **根因**（前端字段不匹配，**pre-existing，初始构建 a120497 即有，S41 未引入**）：
+  - `frontend/src/views/rag/CompareView.vue`：模板 `:key="c.chunk_id"`、`:class="{active: selectedChunk?.chunk_id===c.chunk_id}"`、`onChunkClick` 里 `api.getChunkLocation(kbId, docId, c.chunk_id)`、`openEdit`/`updateChunk` 用 `editTarget.chunk_id`——**全部读 `c.chunk_id`**。
+  - `services/shared/joker_shared/rag/service.py` `list_chunks` → `_chunk_dict`：返回字段为 **`id`**（非 `chunk_id`）→ `c.chunk_id === undefined` → 请求打到 `.../chunks/undefined/location` → 后端 500 → 前端 `catch(e){/*忽略*/}` 吞错 → 左栏无高亮 + 全局错误横幅。
+  - 证据（`03-testing/dev_probe_s42_api.log`）：chunks 列表 API chunk #0 `keys` 含 `id`、**`chunk_id=None`**；location API 用**正确 id** → **200**（`pos.char_start=0`）；用 **`undefined`**（前端实际发送值）→ **500**。
+- **连带影响（同源）**：① active 态视觉 BUG：`undefined===undefined` → **所有 chunk 都显示 active 蓝边框**（`cmp_txt_chunk_hl.png` 两 chunk 均蓝边、`cmp_docx_chunk_hl.png` #0-#5 均蓝边）；② chunk 编辑（`openEdit`/`updateChunk`）同样读 `c.chunk_id` → 大概率同样打 `undefined`。
+- **为何 docx 高亮「看似正常」**：docx/xlsx 高亮走 `highlightQuery`（渲染后 DOM 文本流匹配），**不调 location API**，故 docx 点 chunk 能高亮——掩盖了 `c.chunk_id` 字段缺陷。
+- **影响**：① txt/md 右→左联动（ARCH §2.2.1 R06/R09 正式需求）**完全不可用**；② 每次点 txt/md chunk 用户可见 500 错误横幅；③ active 态全亮误导；④ chunk 编辑可能不可用。**核心对比功能缺陷，阻塞对比页完整验收。**
+- **修复建议**（前端）：`CompareView.vue` 全量 `c.chunk_id` → `c.id`（模板 `:key`/`:data-cid`/active 判定、`onChunkClick`、`openEdit`、`updateChunk`）；或后端 `list_chunks` 序列化补 `chunk_id` 字段。需核对 `chunk_location`/`chunks_by_location` 返回的 `chunk_id`/`primary_chunk_id` 与列表 `id` 同源。
+- **潜在连带**：txt 文件 521 字符但 `pos.char_end=1021`（越界）、md 623 字符 `char_end=1123`（越界）——**实为切分器 `splitter.py:_char_pos` 的 `char_end` 误以 `block.char_end`（块级全长）为基的加法 bug**（非字节/字符错位，S42 txt 探针 521 字节=521 字符纯 ASCII），S42b 已修（`char_end=block.char_start+s+e`）。
+- **状态**：**已闭环（S44 终审 2026-09-30，t_e98d3cab，PASS）**。修复（S42b，章北海，commit `0f6e6f0`）：① 前端 `CompareView.vue` 全量 `c.chunk_id`→`c.id`（6 处）；② 后端 `splitter.py:_char_pos` `char_end` 改以 `block.char_start` 为基；③ 存量越界 pos 对 2 个 S42 探针（txt/md）resplit 重算。**S42c 独立复测（两份，t_43b3e53a + t_109b04a0，均 PASS）+ S44 终审独立复核**：源码独立 grep CompareView.vue 零 `c.chunk_id`（全量 `c.id`，唯一保留 `primary_chunk_id` 为响应契约字段）；真实 UI 点 txt chunk#0/#1 高亮文本 == DB content **逐字**（500/71）/md#0 逐字（500）；`undefined_reqs=[]`（网络层铁证，前端不再发 undefined 请求）；`actives=1`（仅被点 chunk）；无 500 横幅；chunk 编辑读 `c.id` 回显 == DB；负向对照 `chunks/undefined/location` 仍 500（证旧缺陷端点真实拒绝）；docx 高亮正常（S41 不回退）；7 类型回归 7/7；全程零 5xx；关键截图 S44 独立 vision 复核（局部高亮非整篇 + 仅 #0 active + 无红横幅）。证据 `03-testing/TEST_REPORT_S42c_t43b3e53a.md` + `TEST_REPORT_S42c.md` + `dev_probe_s42c_ui.log`(30 PASS) + `dev_probe_s42c_pos.log` + `screenshots/s42c/` + `ACCEPTANCE_S44.md` §3。**附注**：全库其他历史文档（14 个）存量 pos 越界 → 见 **BUG-26**（P3，非本轮阻塞）。
+
+---
+
+## BUG-25（P3 · 观察 · 原 S42 编号 BUG-22）embedding 端点瞬时 `ReadError` 无重试，批量上传文档落 failed（S42 发现，非对比页范围）
+
+> **编号说明（S44 终审 2026-09-30）**：原 S42 编号 BUG-22，与旧 RAG 三缺陷轮 BUG-22（reindex 后 failed 文档自动重算，P1，S38 已关闭）撞号 → 重命名为 **BUG-25**。
+
+- **现象**：7 文档批量上传时，txt/xlsx 的 rag worker 调**远程** embedding 端点（34.64.61.208:4000）抛 `httpcore.ReadError`（连接瞬时中断）→ 文档 `status=failed`（`error_message="ReadError:"`）。api 日志铁证：`rag doc worker failed ... httpx.ReadError`。
+- **定因**：远程端点**瞬时连接抖动**（环境态，非平台缺陷；随后 `05-temp/s42/reach_check.py` 实测端点 200/dim=1536 恢复）。文档已正确切分（txt=2/xlsx=3 chunks 落库），仅向量化中断。本轮用真实 UI「重试」（POST /docs/{id}/retry → 202）恢复 ready。
+- **影响**：批量/并发上传时任一 embedding 请求瞬时断连即整文档 failed，**无自动重试**，需手动「重试」。
+- **建议**：rag worker 对 embedding 调用加有限次重试 + 指数退避（仅瞬时网络错误，非 4xx/5xx）。
+- **状态**：P3 观察项，待后续排期（非对比页验收范围，不阻塞本轮主目标）。
+
+---
+
+## BUG-26（P3 · 新增 S44 终审 2026-09-30）14 个历史文档存量 chunk pos 越界（高亮区间精度）
+
+- **现象**：S42c 独立全库核查发现，除 2 个 S42 探针（S42b 已 resplit 重算）外，**其余 14 个历史文档的 chunk `pos` 仍存在越界/长度不一致**（`char_end - char_start ≠ content_len`，无倒挂）。明细示例：`hello.txt` #0 [0,122] 但 content=61（越界×2）；`t.md` #0 [0,28] content=14；`policy.pdf` #0 [0,58] content=29；`s41docx_*`/`s42_docx_probe.docx` 多 chunk（块级坐标）；`s42_pdf_probe.pdf` #0 [0,488] content=244 等（详见 `03-testing/TEST_REPORT_S42c.md` §3）。
+- **定因**：S42b 只修复了切分器 `splitter.py:_char_pos` 的 `char_end` 基值 bug（新切分正确），并对 2 个 S42 探针做了 resplit 重算；**存量 14 文档的 pos 是旧版切分器写入的历史数据，未重算**。
+- **影响**：仅影响这 14 个历史文档点 chunk 联动时**高亮区间精度**（越界区间可能高亮错误/偏大）；**非 500、非功能不可用**（txt/md 之外类型走 DOM 文本流匹配不依赖 char 区间）；2 个 S42 探针已精确闭环，BUG-24 不受影响。
+- **建议**：如需全库修正，对全部历史文档逐个 `POST /api/rag/kbs/{kb}/docs/{doc}/resplit` 重算 pos（章北海执行），或先评估 docx/pdf 等块级坐标的 char 偏移语义是否本就应为「块内相对偏移」（需与解析器对齐）。
+- **状态**：P3，**S44 终审裁定不阻塞本轮放行**（错位仅影响高亮精度，非 500/功能不可用；S42c 裁定与 S44 一致）。待后续排期另开任务。
+
+---
+
 ## 说明：未列入本清单的 37 项 FAIL（28 项非产品 BUG）
 以下 FAIL **不是产品缺陷**，逐条证据与归类见 TEST_REPORT.md §3（37 项全表）：
 - **测试脚本缺陷（18 项）**：RAG-02 上传/来源/解析（round-1 未等 parse ready，probe9/10 独立复现 6/6 + status=ready + 2 chunks）、RAG-04 定长/父子/语义切分（round-1 时序）、RAG-05 原文查看/chunk 列表（probe10 复现 200/1782B、count=2）、MCP-03 关联调用方（harness 走错路径，正确 `/referring-agents` 200）、SKILL-01 上传 .md（harness multipart 字段名 `file` vs 接口 `files`）、SKILL-02 files=[]（上一条连带）、AGENT-04 列表/新建/重命名/删除（harness 字段名 `session_id` vs `id` + 期望 201 vs 实际 200；probe14 独立复现 create/rename/delete 全 200）、LLM-01 修改 endpoint（harness 传非可更新字段 `description`）、限流单用户 429（harness `req()` 对 429 自动退避重试+仅发 3 次，429 被吞；probe14 §H 独立复现 10×200→6×429）、TRACE-02 按会话检索（8/9 trace 项 PASS，仅「按会话」filter 命中 0，疑似 session_id 过滤错位）。

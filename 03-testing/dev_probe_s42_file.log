@@ -1,0 +1,42 @@
+=== s42_txt_probe.txt === s42_txt_probe.txt (doc=3530205e-95c6-4616-a9ae-365ef72c23b5) ===
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+bytes: 521
+magic: 5334322054
+
+=== s42_md_probe.md (doc=c5a1d1e0-0f8a-49cb-9414-ad6ff22ad87b) ===
+HTTP/1.1 200 OK
+Content-Type: text/markdown; charset=utf-8
+bytes: 623
+magic: 2320533432
+
+=== s42_docx_probe.docx (doc=60104c33-4db6-4770-bf0b-c45279b78e98) ===
+HTTP/1.1 200 OK
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+bytes: 37148
+magic: 504b030414
+
+=== s42_xlsx_probe.xlsx (doc=d946bb60-0146-4895-b060-66bbaf452301) ===
+HTTP/1.1 200 OK
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+bytes: 6098
+magic: 504b030414
+
+=== s42_pdf_probe.pdf (doc=2ccdd05f-6ac8-45b4-b136-867b09a8c6ef) ===
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+bytes: 3545
+magic: 255044462d
+
+=== s42_png_probe.png (doc=90b78fda-9a2d-4816-a853-53c6b689decf) ===
+HTTP/1.1 200 OK
+Content-Type: image/png
+bytes: 33268
+magic: 89504e470d
+
+=== s42_jpg_probe.jpg (doc=59809726-fe25-48eb-aaa8-6aefbb6e09ae) ===
+HTTP/1.1 200 OK
+Content-Type: image/jpeg
+bytes: 10563
+magic: ffd8ffe000
+

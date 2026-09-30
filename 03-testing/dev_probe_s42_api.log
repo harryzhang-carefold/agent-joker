@@ -1,0 +1,14 @@
+login token len: 3927
+
+=== location API with CORRECT chunk id ===
+{"pos":{"char_end":1021,"char_start":0},"chunk_id":"4bc04876-0905-42c4-bbb5-ddae9b31db51"}
+HTTP_STATUS=200
+
+=== location API with 'undefined' id (what CompareView sends: c.chunk_id) ===
+Internal Server Error
+HTTP_STATUS=500
+
+=== chunks list API: fields returned for chunk #0 ===
+keys: ['chunk_index', 'content', 'content_sha256', 'created_at', 'created_by', 'deleted_at', 'doc_id', 'edited_at', 'id', 'is_table', 'knowledge_base_id', 'last_score', 'parent_id', 'pos', 'split_strategy', 'tenant_id', 'updated_at', 'updated_by']
+id= 4bc04876-0905-42c4-bbb5-ddae9b31db51
+chunk_id= None

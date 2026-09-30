@@ -1,0 +1,25 @@
+S42 验证轮 start 2026-09-30T11:00:16.432Z
+2026-09-30T11:00:17.972Z PASS | 00 真实表单登录 acme/admin | status=200 url=http://localhost:8080/users
+2026-09-30T11:00:18.816Z PASS | 01 进入 1536 库文档页 | url=http://localhost:8080/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b
+2026-09-30T11:00:18.897Z PASS | 重试 s42_txt_probe.txt（原 failed） | http=202
+2026-09-30T11:00:19.354Z PASS | 重试 s42_xlsx_probe.xlsx（原 failed） | http=202
+2026-09-30T11:00:29.628Z PASS | 7 文档全部 ready | {"s42_txt_probe.txt":"ready","s42_md_probe.md":"ready","s42_docx_probe.docx":"ready","s42_xlsx_probe.xlsx":"ready","s42_pdf_probe.pdf":"ready","s42_png_probe.png":"ready","s42_jpg_probe.jpg":"ready"}
+2026-09-30T11:00:32.764Z PASS | 对比页 s42_txt_probe.txt 左栏渲染 | tag=可高亮 | leftTextLen=520 sample=S42 TXT Probe ============  This is a real plain-t
+2026-09-30T11:00:32.767Z PASS | 对比页 s42_txt_probe.txt 右栏 chunk 列表 | chunkCount=2（DB 期望=2）first=#0字符 [0, 1021)S42 TXT Probe ============  This is a real pla
+2026-09-30T11:00:33.800Z FAIL | 对比页 txt 点 chunk 精确高亮 | marks=0
+2026-09-30T11:00:37.101Z PASS | 对比页 s42_md_probe.md 左栏渲染 | tag=可高亮 | leftTextLen=622 sample=# S42 MD Probe Document  This is a real Markdown f
+2026-09-30T11:00:37.104Z PASS | 对比页 s42_md_probe.md 右栏 chunk 列表 | chunkCount=2（DB 期望=2）first=#0字符 [0, 1123)# S42 MD Probe Document  This is a real Markdo
+2026-09-30T11:00:38.136Z FAIL | 对比页 md 点 chunk 精确高亮 | marks=0
+2026-09-30T11:00:41.460Z PASS | 对比页 s42_docx_probe.docx 左栏渲染 | tag=已渲染 | leftTextLen=197759 tables=1 sample=.docx-wrapper { background: gray; padding: 30px; p
+2026-09-30T11:00:41.462Z PASS | 对比页 s42_docx_probe.docx 右栏 chunk 列表 | chunkCount=7（DB 期望=7）first=#0节: S42 DOCX Probe Document · 字符 [0, 164)This is a real .do
+2026-09-30T11:00:42.513Z PASS | 对比页 docx 点 chunk 高亮（最佳努力） | marks=1（匹配不到=0 亦可，不报错）
+2026-09-30T11:00:45.819Z PASS | 对比页 s42_xlsx_probe.xlsx 左栏渲染 | tag=已渲染 | cells=34 tabs=["Inventory","Orders","Returns"] firstCell=SKU
+2026-09-30T11:00:45.822Z PASS | 对比页 s42_xlsx_probe.xlsx 右栏 chunk 列表 | chunkCount=3（DB 期望=3）first=#0表格表格: Inventory#1 行[1-4]| SKU | Name | Qty | UnitPrice | |
+2026-09-30T11:00:46.870Z PASS | 对比页 xlsx 点 chunk 高亮（最佳努力） | marks=0（匹配不到=0 亦可，不报错）
+2026-09-30T11:00:50.129Z PASS | 对比页 s42_pdf_probe.pdf 左栏渲染 | tag=PDF 预览 | iframeSrc=blob:http://localhost:8080/a42c8929-2c88
+2026-09-30T11:00:50.132Z PASS | 对比页 s42_pdf_probe.pdf 右栏 chunk 列表 | chunkCount=3（DB 期望=3）first=#0第 1 页 · 字符 [0, 488)S42 PDF Probe - page 1 A real multi-pag
+2026-09-30T11:00:53.389Z PASS | 对比页 s42_png_probe.png 左栏渲染 | tag=图片直显（整图=1 chunk） | imgSrc=blob:http://localhost:8080/96fd4a9d-0385 naturalWidth=520
+2026-09-30T11:00:53.392Z PASS | 对比页 s42_png_probe.png 右栏 chunk 列表 | chunkCount=1（DB 期望=1）first=#0第 1 页 · 字符 [0, 262) · 整图图片内容描述：  - 背景：从顶部深蓝色到底部浅蓝色的垂直渐变。 -
+2026-09-30T11:00:56.653Z PASS | 对比页 s42_jpg_probe.jpg 左栏渲染 | tag=图片直显（整图=1 chunk） | imgSrc=blob:http://localhost:8080/6def078a-96c8 naturalWidth=560
+2026-09-30T11:00:56.656Z PASS | 对比页 s42_jpg_probe.jpg 右栏 chunk 列表 | chunkCount=1（DB 期望=1）first=#0第 1 页 · 字符 [0, 184) · 整图图片背景为从上至下的渐变色，顶部为深红褐色，向下逐渐过渡为浅棕色。 
+S42 验证轮 done: pass=21 fail=2

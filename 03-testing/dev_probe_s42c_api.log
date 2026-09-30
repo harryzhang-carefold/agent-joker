@@ -1,0 +1,10 @@
+2026-09-30T20:17:36 PASS | 真实登录 /api/auth/login | status=200
+2026-09-30T20:17:36 PASS | 定位 1536 库 upload-repro-01 | dim=1536
+2026-09-30T20:17:36 PASS | 文档页含 txt/md 探针且 ready | txt=ready md=ready
+2026-09-30T20:17:36 PASS | s42_txt_probe.txt chunks 列表含 id 字段且 chunk_id 为 None (前端 c.id 可取) | n=2 c0.keys=['chunk_index', 'content', 'content_sha256', 'created_at', 'created_by', 'deleted_at', 'doc_id', 'edited_at']
+2026-09-30T20:17:36 PASS | s42_txt_probe.txt /file 原文 521 字符 | status=200 len=521
+2026-09-30T20:17:37 PASS | s42_txt_probe.txt 全部 chunk location pos 不越界 且 content==原文slice | #0[0,500] len=500 contentMatch=True; #1[450,521] len=71 contentMatch=True
+2026-09-30T20:17:37 PASS | s42_md_probe.md chunks 列表含 id 字段且 chunk_id 为 None (前端 c.id 可取) | n=2 c0.keys=['chunk_index', 'content', 'content_sha256', 'created_at', 'created_by', 'deleted_at', 'doc_id', 'edited_at']
+2026-09-30T20:17:37 PASS | s42_md_probe.md /file 原文 623 字符 | status=200 len=623
+2026-09-30T20:17:37 PASS | s42_md_probe.md 全部 chunk location pos 不越界 且 content==原文slice | #0[0,500] len=500 contentMatch=True; #1[450,623] len=173 contentMatch=True
+2026-09-30T20:17:37 PASS | 负向: chunks/undefined/location 返回 4xx/5xx (端点确实会拒绝, 前端已不再发送) | status=500 (前端修复后不产生此请求)

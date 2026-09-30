@@ -1,0 +1,19 @@
+[login] http=200 token_len=3927
+
+===== txt s42_txt_probe.txt doc=3530205e-95c6-4616-a9ae-365ef72c23b5 =====
+[file] http=200 content-type=text/plain; charset=utf-8 chars=521
+[chunks] http=200 count=2
+  chunk id=9c96525e-92f7-4dd0-b1c1-c039c0cbf2c7  content_len=500  pos.cs=0 pos.ce=500  in_bounds=True  slice==content:True
+  chunk id=b35e1055-739d-4ae6-9ebc-1f9e97a61b88  content_len=71  pos.cs=450 pos.ce=521  in_bounds=True  slice==content:True
+  ==> txt 精确高亮区间: PASS
+
+===== md s42_md_probe.md doc=c5a1d1e0-0f8a-49cb-9414-ad6ff22ad87b =====
+[file] http=200 content-type=text/markdown; charset=utf-8 chars=623
+[chunks] http=200 count=2
+  chunk id=7b606a91-08c3-4bb5-8d3e-ec100031b25d  content_len=500  pos.cs=0 pos.ce=500  in_bounds=True  slice==content:True
+  chunk id=3b2653e4-d216-4dce-b437-44df9569ddf6  content_len=173  pos.cs=450 pos.ce=623  in_bounds=True  slice==content:True
+  ==> md 精确高亮区间: PASS
+
+[undefined-location] http=500 (对照: 旧缺陷值 undefined 应 500)
+
+POS evidence done

@@ -1,0 +1,30 @@
+2026-09-30T20:25:27 PASS | 真实表单登录 acme/admin（离开 /login）
+2026-09-30T20:25:27 PASS | 进入 KB 文档列表 (upload-repro-01) | url=http://localhost:8080/rag/kbs/1cc179c9-5fce-4c58-b4c5-c7f181b06c2b
+2026-09-30T20:25:28 PASS | txt 左栏渲染 (.orig-text)
+2026-09-30T20:25:28 PASS | txt 加载后无 Internal Server Error
+2026-09-30T20:25:30 PASS | txt 点 chunk#0 不发 /chunks/undefined/* 请求 | undefined_reqs=[]
+2026-09-30T20:25:30 PASS | txt 点 chunk#0 → 左栏有 <mark> 高亮(=1) | marks=1
+2026-09-30T20:25:30 PASS | txt 高亮文本 == DB chunk#0 content（逐字） | ui_len=500 db_len=500 ui_head='S42 TXT Probe\n==========' db_head='S42 TXT Probe\n=========='
+2026-09-30T20:25:30 PASS | txt 仅被点 chunk#0 active（=1，不再全亮） | actives=1
+2026-09-30T20:25:30 PASS | txt 点 chunk 后无 Internal Server Error | 500s=[]
+2026-09-30T20:25:31 PASS | txt 点 chunk#1 不发 undefined 请求
+2026-09-30T20:25:31 PASS | txt chunk#1 高亮 == DB content（逐字，len=71） | ui_len=71 db_len=71
+2026-09-30T20:25:34 PASS | txt 打开 chunk 编辑框（editTarget 读 c.id，回显=DB content，不报 undefined） | dialog=1 textarea=1 val_len=500 db_len=500 match_db=True val_head='S42 TXT Probe\n============\n\nTh'
+2026-09-30T20:25:36 PASS | md 左栏渲染 (.orig-text)
+2026-09-30T20:25:37 PASS | md 点 chunk#0 不发 undefined 请求
+2026-09-30T20:25:37 PASS | md 点 chunk#0 → <mark> 高亮(=1) | marks=1
+2026-09-30T20:25:37 PASS | md 高亮文本 == DB chunk#0 content（逐字） | ui_len=500 db_len=500
+2026-09-30T20:25:37 PASS | md 仅被点 chunk#0 active（=1） | actives=1
+2026-09-30T20:25:37 PASS | md 点 chunk 后无 Internal Server Error
+2026-09-30T20:25:39 PASS | docx 左栏渲染 (.orig-docx)
+2026-09-30T20:25:41 PASS | docx 点 chunk → 渲染 DOM 有高亮(最佳努力 ≥1) | marks=1
+2026-09-30T20:25:41 PASS | docx 仅被点 chunk#0 active（=1） | actives=1
+2026-09-30T20:25:41 PASS | docx 点 chunk 后无 Internal Server Error
+2026-09-30T20:25:43 PASS | 回归 s42_txt_probe.txt 左栏渲染(.orig-text) + chunk列表=2 | present=True chunkCount=2 (DB期望=2)
+2026-09-30T20:25:44 PASS | 回归 s42_md_probe.md 左栏渲染(.orig-text) + chunk列表=2 | present=True chunkCount=2 (DB期望=2)
+2026-09-30T20:25:46 PASS | 回归 s42_pdf_probe.pdf 左栏渲染(.orig-pdf) + chunk列表=3 | present=True chunkCount=3 (DB期望=3)
+2026-09-30T20:25:47 PASS | 回归 s42_png_probe.png 左栏渲染(.orig-img) + chunk列表=1 | present=True chunkCount=1 (DB期望=1)
+2026-09-30T20:25:49 PASS | 回归 s42_jpg_probe.jpg 左栏渲染(.orig-img) + chunk列表=1 | present=True chunkCount=1 (DB期望=1)
+2026-09-30T20:25:51 PASS | 回归 s42_docx_probe.docx 左栏渲染(.orig-docx) + chunk列表=7 | present=True chunkCount=7 (DB期望=7)
+2026-09-30T20:25:52 PASS | 回归 s42_xlsx_probe.xlsx 左栏渲染(.orig-xlsx) + chunk列表=3 | present=True chunkCount=3 (DB期望=3)
+2026-09-30T20:25:53 PASS | 全程无 5xx 服务器错误 | 5xx=[]

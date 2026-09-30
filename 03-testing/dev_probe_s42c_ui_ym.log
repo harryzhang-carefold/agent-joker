@@ -1,0 +1,27 @@
+2026-09-30T20:29:20 PASS | 真实表单登录 acme/admin (仅 /login 入口) | wait_for_url 离开 /login
+2026-09-30T20:29:23 PASS | txt 点 chunk#0 → 左栏有 <mark> 高亮 (恰 1 个) | marks=1
+2026-09-30T20:29:23 PASS | txt chunk#0 高亮 span 长度=500 (精确非整篇) | hl_len=500
+2026-09-30T20:29:23 PASS | txt 点 chunk#0 → 仅被点 chunk active (非全 active) | active=1
+2026-09-30T20:29:23 PASS | txt 点 chunk#0 → 无 Internal Server Error 横幅
+2026-09-30T20:29:24 PASS | txt 点 chunk#1 → 高亮 span 长度=71 (精确) | marks=1 hl_len=71
+2026-09-30T20:29:24 PASS | txt 点 chunk#1 → 仅被点 chunk active | active=1
+2026-09-30T20:29:27 PASS | md 点 chunk#0 → 左栏有 <mark> 高亮 | marks=1
+2026-09-30T20:29:27 PASS | md chunk#0 高亮 span 长度=500 (修复前 1123 越界整篇) | hl_len=500
+2026-09-30T20:29:27 PASS | md 高亮区间不再整篇 (hl < 全文长) | hl=500 full=623
+2026-09-30T20:29:27 PASS | md 点 chunk#0 → 仅被点 chunk active | active=1
+2026-09-30T20:29:27 PASS | md 点 chunk#0 → 无 Internal Server Error 横幅
+2026-09-30T20:29:34 PASS | chunk 编辑 → 保存并重嵌入成功 (不再打 undefined) | success_msg=True banner=False
+2026-09-30T20:29:34 PASS | chunk 编辑后右栏 chunk#0 显示「已编辑」tag (edited_at 留痕) | edited_tag=1
+2026-09-30T20:29:39 PASS | chunk 编辑恢复原文 (测试数据还原) | ok=True
+2026-09-30T20:29:42 PASS | docx 点 chunk#0 → 渲染 DOM 有 <mark> 高亮 (S41 最佳努力匹配不回退) | marks=1
+2026-09-30T20:29:42 PASS | docx 点 chunk#0 → 仅被点 chunk active | active=1
+2026-09-30T20:29:42 PASS | docx 点 chunk#0 → 无 Internal Server Error 横幅
+2026-09-30T20:29:43 PASS | 回归 s42_txt_probe.txt 左栏渲染(.orig-text)
+2026-09-30T20:29:45 PASS | 回归 s42_md_probe.md 左栏渲染(.orig-text)
+2026-09-30T20:29:47 PASS | 回归 s42_pdf_probe.pdf 左栏渲染(.orig-pdf)
+2026-09-30T20:29:49 PASS | 回归 s42_png_probe.png 左栏渲染(.orig-img)
+2026-09-30T20:29:50 PASS | 回归 s42_jpg_probe.jpg 左栏渲染(.orig-img)
+2026-09-30T20:29:52 PASS | 回归 s42_docx_probe.docx 左栏渲染(.orig-docx)
+2026-09-30T20:29:54 PASS | 回归 s42_xlsx_probe.xlsx 左栏渲染(.orig-xlsx)
+2026-09-30T20:29:54 PASS | 全程零 5xx (浏览器侧响应) | 5xx=[]
+2026-09-30T20:29:54 PASS | 前端不再发送 chunks/undefined 请求 (BUG-21 字段修复生效) | undef_reqs=[]
